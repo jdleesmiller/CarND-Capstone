@@ -8,6 +8,7 @@ import tf
 import math
 
 from waypoint_planner import WaypointPlanner
+# PID Tuning: from stop_go_profiler import StopGoProfiler, make_stop_go_profile
 
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
@@ -77,6 +78,7 @@ class WaypointUpdater(object):
         lane.header.frame_id = '/world'
         lane.header.stamp = rospy.get_rostime()
         lane.waypoints = plan_waypoints
+        # PID Tuning: self.profiler.apply_speed_profile(lane)
         self.final_waypoints_pub.publish(lane)
 
     def run(self):
@@ -85,6 +87,11 @@ class WaypointUpdater(object):
         start_time = 0
         while not start_time:
             start_time = rospy.Time.now().to_sec()
+
+        # PID Tuning in the twist_controller: these will make the car stop
+        # and go in a regular pattern to allow for PID gain tuning.
+        # stop_go_profile = make_stop_go_profile(start_delay=5)
+        # self.profiler = StopGoProfiler(start_time, stop_go_profile)
 
         while not rospy.is_shutdown():
             self.publish_waypoints()
