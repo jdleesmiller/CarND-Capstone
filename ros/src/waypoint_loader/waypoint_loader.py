@@ -51,6 +51,10 @@ class WaypointLoader(object):
                 p.pose.pose.position.z = float(wp['z'])
                 q = self.quaternion_from_yaw(float(wp['yaw']))
                 p.pose.pose.orientation = Quaternion(*q)
+                # TODO: This converts from km/h to m/s, and the speed is
+                # 40km/h in the launch file for the sim, but the instructions
+                # are to cap to 10mph on Carla, and the value in the launch
+                # file for Carla is 10. Need to make these consistent.
                 p.twist.twist.linear.x = float(self.velocity*0.27778)
 
                 waypoints.append(p)
