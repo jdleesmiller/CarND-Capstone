@@ -2,8 +2,9 @@
 
 import rospy
 from geometry_msgs.msg import PoseStamped
-from styx_msgs.msg import Lane, Waypoint
+from styx_msgs.msg import Lane, Waypoint, TrafficLightArray
 
+import tf
 import math
 
 from waypoint_planner import WaypointPlanner
@@ -33,6 +34,7 @@ class WaypointUpdater(object):
         self.planner = WaypointPlanner(self.wait_for_base_waypoints())
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
+        rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.light_cb)
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
 
@@ -55,12 +57,22 @@ class WaypointUpdater(object):
         Record the last known pose.
         """
         self.planner.position = msg.pose.position
+        quat = (msg.pose.orientation.x, \
+                msg.pose.orientation.y, \
+                msg.pose.orientation.z, \
+                msg.pose.orientation.w)
+        self.planner.yaw = tf.transformations.euler_from_quaternion(quat)[2]
+
+    def light_cb(self, msg):
+        """
+        Get traffic light state
+        """
+        self.planner.lights = msg.lights
 
     def publish_waypoints(self):
         plan_waypoints = self.planner.plan(LOOKAHEAD_WPS)
         if plan_waypoints is None:
             return
-
         lane = Lane()
         lane.header.frame_id = '/world'
         lane.header.stamp = rospy.get_rostime()
@@ -68,7 +80,7 @@ class WaypointUpdater(object):
         self.final_waypoints_pub.publish(lane)
 
     def run(self):
-        rate = rospy.Rate(10)
+        rate = rospy.Rate(1)
 
         start_time = 0
         while not start_time:
