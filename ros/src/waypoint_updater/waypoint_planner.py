@@ -6,7 +6,7 @@ import yaml
 import copy
 
 targetSpeed = 10 # m/s ---- 4.4074 m/s = 10 MPH
-accelDist = 20 # Distance over which acceleration should occur
+accelDist = 10 # Distance over which acceleration should occur
 decelDist = 100 # Distance over which deceleration should occur
 
 def minJerk(T, si, siDot, siDDot, sf, sfDot, sfDDot):
