@@ -78,7 +78,7 @@ class Controller(object):
         if speed_control >= 0:
             throttle = speed_control
             brake = 0
-        elif speed_control <= self.brake_deadband:
+        elif speed_control <= self.brake_deadband or target_speed < 1.0:
             # If we are braking, the control is the torque to be applied by
             # the brakes. We know the braking force we want from F=ma where
             # m is the mass of the vehicle and a is the control value, so
@@ -92,8 +92,9 @@ class Controller(object):
             brake = 0
 
         # rospy.logwarn_throttle(
-        #     1,
-        #     'target=%.2f t=%.2f b=%.2f' % (target_speed, throttle, brake))
+        #   1,
+        #   'target=%.2f a=%.2f t=%.2f b=%.2f' % (
+        #       target_speed, speed_control, throttle, brake))
 
         steer = self.yaw_controller.get_steering(
             target_speed, target_angular_velocity, current_speed)
