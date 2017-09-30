@@ -63,6 +63,11 @@ class SpeedPIDTuner(object):
         self.total_absolute_error = 0
 
     def __finish_epoch(self):
+        # Ignore short epochs; the current cycle is 25s.
+        if self.t < 24:
+            self.__start_epoch()
+            return
+
         self.twiddler.twiddle(self.mean_absolute_error())
         self.pid.kp, self.pid.ki, self.pid.kd = self.twiddler.values
         rospy.loginfo("TuningPID: err=%.3f gain=%s delta=%s",
