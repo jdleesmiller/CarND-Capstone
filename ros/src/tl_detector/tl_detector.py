@@ -21,6 +21,7 @@ class TLDetector(object):
         self.pose = None
         self.waypoints = None
         self.camera_image = None
+        self.stop_line_waypoints = []
         self.lights = []
 
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
@@ -57,6 +58,21 @@ class TLDetector(object):
 
     def waypoints_cb(self, waypoints):
         self.waypoints = waypoints
+
+        # List of positions that correspond to the line to stop in front of for a given intersection
+        stop_line_positions = self.config['stop_line_positions']
+
+        # go through all traffic lights stop lines
+        for stop_line in stop_line_positions:
+            stop_line_pose = PoseStamped()
+            stop_line_pose.pose.position.x = stop_line[0]
+            stop_line_pose.pose.position.y = stop_line[1]
+            stop_line_pose.pose.position.z = 0
+            stop_line_pose.pose.orientation = 0
+
+            # get nearest wp to light
+            stop_line_wp = self.get_closest_waypoint(stop_line_pose)
+            self.stop_line_waypoints.append(stop_line_wp)
 
     def traffic_cb(self, msg):
         self.lights = msg.lights
@@ -201,36 +217,24 @@ class TLDetector(object):
             vehicle_wp = self.get_closest_waypoint(self.pose)
             nearest_dist = 1e8
 
-            # List of positions that correspond to the line to stop in front of for a given intersection
-            stop_line_positions = self.config['stop_line_positions']
-
             # go through all traffic lights stop lines
-            for stop_line in stop_line_positions:
+            for stop_line_wp in self.stop_line_waypoints:
 
-                stop_line_pose = PoseStamped()
-                stop_line_pose.pose.position.x = stop_line[0]
-                stop_line_pose.pose.position.y = stop_line[1]
-                stop_line_pose.pose.position.z = 0
-                stop_line_pose.pose.orientation = 0
-
-                # get nearest wp to light
-                tl_wp = self.get_closest_waypoint(stop_line_pose)
-
-                if tl_wp < vehicle_wp:
-                    wp_dist = tl_wp + (len(self.waypoints.waypoints) - vehicle_wp)
+                if stop_line_wp < vehicle_wp:
+                    wp_dist = stop_line_wp + (len(self.waypoints.waypoints) - vehicle_wp)
                 else:
-                    wp_dist = tl_wp - vehicle_wp
+                    wp_dist = stop_line_wp - vehicle_wp
 
                 # if wp index distance is less than current nearest, set as nearest
                 if wp_dist < nearest_dist:
                     # update nearest waypoint distance
                     nearest_dist = wp_dist
                     # set to nearest index
-                    light_wp = tl_wp
+                    light_wp = stop_line_wp
 
             if light_wp != -1:
                 state = self.get_light_state(light_wp)
-                #rospy.loginfo("Traffic Light Ahead: wp=%d state=%d dist=%d", light_wp, state, nearest_dist)
+                rospy.loginfo("Traffic Light Ahead: wp=%d state=%d dist=%d", light_wp, state, nearest_dist)
 
         return light_wp, state
 
