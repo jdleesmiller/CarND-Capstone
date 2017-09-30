@@ -1,5 +1,6 @@
 import rospy
 
+from lowpass import LowPassFilter
 from pid import PID
 from yaw_controller import YawController
 
@@ -14,6 +15,7 @@ SPEED_KP = 1.6964451905384597
 SPEED_KI = 0.010260805758487174
 SPEED_KD = 0.009461065000648269
 
+SPEED_FILTER_TAU = 0.2
 YAW_CONTROLLER_MIN_SPEED = 1.0
 
 # Watching `rostopic echo /vehicle/*_report`:
@@ -36,6 +38,7 @@ class Controller(object):
         self.brake_deadband = brake_deadband
         self.wheel_radius = wheel_radius
 
+        self.speed_filter = LowPassFilter(SPEED_FILTER_TAU, 1.0)
         self.speed_pid = PID(
             SPEED_KP, SPEED_KI, SPEED_KD, decel_limit, accel_limit)
         # Tuning: self.speed_pid_tuner = SpeedPIDTuner(self.speed_pid)
@@ -67,7 +70,8 @@ class Controller(object):
         # These appear to be m/s and rad/s.
         target_speed = self.twist_cmd.twist.linear.x
         target_angular_velocity = self.twist_cmd.twist.angular.z
-        current_speed = self.current_velocity.twist.linear.x
+        unfiltered_current_speed = self.current_velocity.twist.linear.x
+        current_speed = self.speed_filter.filt(unfiltered_current_speed)
 
         t = rospy.get_rostime()
         dt = (t - self.t).to_sec()
@@ -92,9 +96,10 @@ class Controller(object):
             brake = 0
 
         # rospy.logwarn_throttle(
-        #   1,
-        #   'target=%.2f a=%.2f t=%.2f b=%.2f' % (
-        #       target_speed, speed_control, throttle, brake))
+        #     0.5,
+        #     'target=%.2f curr=%.2f (%.2f) a=%.2f t=%.2f b=%.2f' % (
+        #         target_speed, current_speed, unfiltered_current_speed,
+        #         speed_control, throttle, brake))
 
         steer = self.yaw_controller.get_steering(
             target_speed, target_angular_velocity, current_speed)
