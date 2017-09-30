@@ -234,7 +234,7 @@ class TLDetector(object):
 
             if light_wp != -1:
                 state = self.get_light_state(light_wp)
-                rospy.loginfo("Traffic Light Ahead: wp=%d state=%d dist=%d", light_wp, state, nearest_dist)
+                #rospy.loginfo("Traffic Light Ahead: wp=%d state=%d dist=%d", light_wp, state, nearest_dist)
 
         return light_wp, state
 
