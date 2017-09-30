@@ -28,7 +28,7 @@ def minJerk(T, si, siDot, siDDot, sf, sfDot, sfDDot):
 
 def position_distance(position0, position1):
     """
-    Squared distance between two positions.
+    Distance between two positions.
     """
     delta_x = position1.x - position0.x
     delta_y = position1.y - position0.y
@@ -45,7 +45,7 @@ def getClosestForwardLight(lights, position, yaw):
         distance = position_distance(position, lightPos)
         if distance < min_distance:
             min_distance = distance
-            min_index = index   
+            min_index = index
     head = np.arctan2(lights[min_index].pose.pose.position.y - position.y , \
                       lights[min_index].pose.pose.position.x - position.x)
     if np.abs(head - yaw) > np.pi/2:
@@ -111,7 +111,7 @@ class WaypointPlanner(object):
             else:
                 coeff[-1] = alpha[-1] - self.distance(WPs,min_index,min_index+i)
                 roots = np.roots(coeff) # Solve positin polynomial for time
-                # Filter out impossible roots - nothing complex nor negative 
+                # Filter out impossible roots - nothing complex nor negative
                 if time == 0: # Need this to get started
                     time = 0.0001
                 else:
@@ -125,9 +125,34 @@ class WaypointPlanner(object):
         if currentSpeed == 0 and accelerate:
             i = 0
             while setSpeed[i] < 1:
-            	setSpeed[i] = 1
+                setSpeed[i] = 1
                 i += 1
         return setSpeed
+
+    def find_closest_waypoints(self, num_waypoints):
+        """
+        Find the closest base waypoint and return the next `num_waypoints`
+        base waypoints. This is used for PID controller tuning.
+        """
+        if self.position is None:
+            return None
+
+        min_distance = float('inf')
+        min_index = 0
+        for index in range(len(self.base_waypoints)):
+            waypoint_position = self.base_waypoints[index].pose.pose.position
+            distance = position_distance(self.position, waypoint_position)
+            if distance < min_distance:
+                min_distance = distance
+                min_index = index
+
+        max_index = min_index + num_waypoints
+        if max_index >= len(self.base_waypoints):
+            max_index -= len(self.base_waypoints)
+            return self.base_waypoints[min_index:] + \
+                self.base_waypoints[:max_index]
+        else:
+            return self.base_waypoints[min_index:max_index]
 
     def plan(self, num_waypoints):
         """
@@ -170,7 +195,7 @@ class WaypointPlanner(object):
                                                                 - self.position.y , \
                               self.base_waypoints[min_index].pose.pose.position.x   \
                                                                 - self.position.x)
-               
+
         WPs = self.base_waypoints # Just temporary as shortcut for variable name
 
         distToLight = self.distance(self.base_waypoints,min_index,light_index) # meters

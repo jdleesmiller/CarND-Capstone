@@ -71,6 +71,8 @@ class WaypointUpdater(object):
         self.planner.lights = msg.lights
 
     def publish_waypoints(self):
+        # PID Tuning:
+        # plan_waypoints = self.planner.find_closest_waypoints(LOOKAHEAD_WPS)
         plan_waypoints = self.planner.plan(LOOKAHEAD_WPS)
         if plan_waypoints is None:
             return
@@ -86,7 +88,7 @@ class WaypointUpdater(object):
 
         start_time = 0
         while not start_time:
-            start_time = rospy.Time.now().to_sec()
+            start_time = rospy.get_time()
 
         # PID Tuning in the twist_controller: these will make the car stop
         # and go in a regular pattern to allow for PID gain tuning.

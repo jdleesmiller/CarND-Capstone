@@ -21,28 +21,28 @@ def make_example_base_waypoints():
 
 class TestWaypointPlanner(unittest.TestCase):
 
-    def test_plan_no_position(self):
+    def test_find_closest_waypoints_no_position(self):
         """
         If the vehicle's position hasn't been provided yet, return None.
         """
         planner = WaypointPlanner(make_example_base_waypoints())
-        self.assertIsNone(planner.plan(1))
+        self.assertIsNone(planner.find_closest_waypoints(1))
 
-    def test_plan_nearest(self):
+    def test_find_closest_waypoints_nearest(self):
         """
         Return waypoints starting from the nearest point.
         """
         planner = WaypointPlanner(make_example_base_waypoints())
 
         planner.position = Vector3(0, 0, 0)
-        waypoints = planner.plan(1)
+        waypoints = planner.find_closest_waypoints(1)
         self.assertEqual(1, len(waypoints))
         self.assertEqual(0, waypoints[0].pose.pose.position.x)
         self.assertEqual(0, waypoints[0].pose.pose.position.y)
         self.assertEqual(0, waypoints[0].pose.pose.position.z)
 
         planner.position = Vector3(0.9, 0.9, 0)
-        waypoints = planner.plan(2)
+        waypoints = planner.find_closest_waypoints(2)
         self.assertEqual(2, len(waypoints))
         self.assertEqual(1, waypoints[0].pose.pose.position.x)
         self.assertEqual(1, waypoints[0].pose.pose.position.y)
@@ -51,7 +51,7 @@ class TestWaypointPlanner(unittest.TestCase):
 
         # Check it wraps back around to the start.
         planner.position = Vector3(0.9, 0.9, 0)
-        waypoints = planner.plan(3)
+        waypoints = planner.find_closest_waypoints(3)
         self.assertEqual(3, len(waypoints))
         self.assertEqual(1, waypoints[0].pose.pose.position.x)
         self.assertEqual(1, waypoints[0].pose.pose.position.y)
