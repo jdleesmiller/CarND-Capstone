@@ -57,13 +57,14 @@ roslaunch launch/styx.launch
 ```bash
 unzip traffic_light_bag_files.zip
 ```
-3. Play the bag file
+3. Play the bag file (it will wait for the ros master to start, below)
 ```bash
 rosbag play -l traffic_light_bag_files/loop_with_traffic_light.bag
 ```
-4. Launch your project in site mode
+4. Run the Rosbag Diagnostics: `rosrun tools diagScreenRosbag.py` (NB: this utility comes from [Team Vulture](https://github.com/diyjac/SDC-System-Integration))
+5. Launch your project in site mode
 ```bash
 cd CarND-Capstone/ros
-roslaunch launch/site.launch
+roslaunch launch/site-rosbag.launch
 ```
-5. Confirm that traffic light detection works on real life images
+6. Confirm that traffic light detection works on real life images
