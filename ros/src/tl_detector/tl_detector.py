@@ -50,6 +50,7 @@ class TLDetector(object):
         self.last_state = TrafficLight.UNKNOWN
         self.last_wp = -1
         self.state_count = 0
+        self.last_known_wp = -1
 
         rospy.spin()
 
@@ -119,22 +120,35 @@ class TLDetector(object):
             int: index of the closest waypoint in self.waypoints
 
         """
-        #TODO implement more efficient algo if required
-
-        # naive implementation
         min_dist = 1e8
         min_wp = -1
 
         if self.waypoints is not None:
-            for i in range(len(self.waypoints.waypoints)):
+
+            # store last waypoint as starting point for search
+            i = self.last_known_wp
+            while True: 
+
                 # determine distance
                 dist = self.get_squared_distance(self.waypoints.waypoints[i].pose.pose.position,
                                                  pose.pose.position)
+
+                # if waypoint is closer than previous, continue. Otherwise this should be the closest since
+                # waypoints are in order of path
                 if dist < min_dist:
                     min_dist = dist
                     min_wp = i
-        return min_wp 
+                else:
+                    break
 
+                # if last waypoint, start from beginning of list
+                if i == (len(self.waypoints.waypoints)-1):
+                    i = 0
+                else:
+                    i += 1
+
+        return min_wp
+    
     def project_to_image_plane(self, point_in_world):
         """Project point from 3D world coordinates to 2D camera image location
 
@@ -214,7 +228,10 @@ class TLDetector(object):
         state = TrafficLight.UNKNOWN
 
         if self.pose and self.waypoints:
+
+            
             vehicle_wp = self.get_closest_waypoint(self.pose)
+            self.last_known_wp = vehicle_wp
             nearest_dist = 1e8
 
             # go through all traffic lights stop lines
