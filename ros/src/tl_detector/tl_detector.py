@@ -8,11 +8,13 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from light_classification.tl_classifier import TLClassifier
 import tf
-import cv2
 import yaml
-import math
+import cv2
+
+from datetime import datetime
 
 STATE_COUNT_THRESHOLD = 3
+
 
 class TLDetector(object):
     def __init__(self):
@@ -23,6 +25,13 @@ class TLDetector(object):
         self.camera_image = None
         self.stop_line_waypoints = []
         self.lights = []
+        self.use_ground_truth = True
+        self.last_known_wp = 0
+
+        if not self.use_ground_truth:
+            rospy.loginfo("Initializing classifier...")
+            self.light_classifier = TLClassifier()
+            rospy.loginfo("Classifier Ready!")
 
         self.bridge = CvBridge()
         self.light_classifier = TLClassifier()
@@ -50,7 +59,7 @@ class TLDetector(object):
         rely on the position of the light and the camera image to predict it.
         '''
         sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb)
-        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb)
+        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb, queue_size=1)
 
         rospy.spin()
 
@@ -123,30 +132,29 @@ class TLDetector(object):
         min_dist = 1e8
         min_wp = -1
 
-        if self.waypoints is not None:
+        # store last waypoint as starting point for search
+        i = self.last_known_wp
+        while True:
 
-            # store last waypoint as starting point for search
-            i = self.last_known_wp
-            while True:
+            # determine distance
+            dist = self.get_squared_distance(self.waypoints.waypoints[i].pose.pose.position,
+                                             pose.pose.position)
 
-                # determine distance
-                dist = self.get_squared_distance(self.waypoints.waypoints[i].pose.pose.position,
-                                                 pose.pose.position)
+            # if waypoint is closer than previous, continue. Otherwise this should be the closest since
+            # waypoints are in order of path
+            if dist < min_dist:
+                min_dist = dist
+                min_wp = i
+            else:
+                break
 
-                # if waypoint is closer than previous, continue. Otherwise this should be the closest since
-                # waypoints are in order of path
-                if dist < min_dist:
-                    min_dist = dist
-                    min_wp = i
-                else:
-                    break
+            # if last waypoint, start from beginning of list
+            if i == (len(self.waypoints.waypoints)-1):
+                i = 0
+            else:
+                i += 1
 
-                # if last waypoint, start from beginning of list
-                if i == (len(self.waypoints.waypoints)-1):
-                    i = 0
-                else:
-                    i += 1
-
+        self.last_known_wp = min_wp
         return min_wp
 
     def project_to_image_plane(self, point_in_world):
@@ -195,12 +203,11 @@ class TLDetector(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
-        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "rgb8")
 
-        # Get detection and classification
-        state = self.light_classifier.get_classification(cv_image)
+        state = TrafficLight.UNKNOWN
 
-        if state == TrafficLight.UNKNOWN:
+        if self.use_ground_truth:
             # Use ground truth if available
             nearest = 1e8
             light_wp_position = self.waypoints.waypoints[light_wp].pose.pose.position
@@ -212,6 +219,16 @@ class TLDetector(object):
                     # update nearest waypoint distance
                     nearest = dist
                     state = light.state
+        else:
+            # Get detection and classification
+            # DEBUG BEGIN
+            # save_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
+            # file_name = "debug/image{}.jpg".format(datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')[:-3])
+            # rospy.loginfo("Saving new image %s", file_name)
+            # cv2.imwrite(file_name, save_image)
+            # DEBUG END
+            rospy.loginfo("Classifying new image seq=%d", self.camera_image.header.seq)
+            state = self.light_classifier.get_classification(cv_image)
 
         return state
 
@@ -229,9 +246,7 @@ class TLDetector(object):
 
         if self.pose and self.waypoints:
 
-
             vehicle_wp = self.get_closest_waypoint(self.pose)
-            self.last_known_wp = vehicle_wp
             nearest_dist = 1e8
 
             # go through all traffic lights stop lines
@@ -250,7 +265,8 @@ class TLDetector(object):
                     light_wp = stop_line_wp
 
             if light_wp != -1:
-                state = self.get_light_state(light_wp)
+                if nearest_dist < 100:
+                    state = self.get_light_state(light_wp)
                 #rospy.loginfo("Traffic Light Ahead: wp=%d state=%d dist=%d", light_wp, state, nearest_dist)
 
         return light_wp, state
