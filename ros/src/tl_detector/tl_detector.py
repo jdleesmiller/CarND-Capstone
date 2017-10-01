@@ -24,6 +24,21 @@ class TLDetector(object):
         self.stop_line_waypoints = []
         self.lights = []
 
+        self.bridge = CvBridge()
+        self.light_classifier = TLClassifier()
+        self.listener = tf.TransformListener()
+
+        self.state = TrafficLight.UNKNOWN
+        self.last_state = TrafficLight.UNKNOWN
+        self.last_wp = -1
+        self.state_count = 0
+        self.last_known_wp = -1
+
+        config_string = rospy.get_param("/traffic_light_config")
+        self.config = yaml.load(config_string)
+
+        self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
+
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
@@ -36,21 +51,6 @@ class TLDetector(object):
         '''
         sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb)
         sub6 = rospy.Subscriber('/image_color', Image, self.image_cb)
-
-        config_string = rospy.get_param("/traffic_light_config")
-        self.config = yaml.load(config_string)
-
-        self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
-
-        self.bridge = CvBridge()
-        self.light_classifier = TLClassifier()
-        self.listener = tf.TransformListener()
-
-        self.state = TrafficLight.UNKNOWN
-        self.last_state = TrafficLight.UNKNOWN
-        self.last_wp = -1
-        self.state_count = 0
-        self.last_known_wp = -1
 
         rospy.spin()
 
@@ -127,7 +127,7 @@ class TLDetector(object):
 
             # store last waypoint as starting point for search
             i = self.last_known_wp
-            while True: 
+            while True:
 
                 # determine distance
                 dist = self.get_squared_distance(self.waypoints.waypoints[i].pose.pose.position,
@@ -148,7 +148,7 @@ class TLDetector(object):
                     i += 1
 
         return min_wp
-    
+
     def project_to_image_plane(self, point_in_world):
         """Project point from 3D world coordinates to 2D camera image location
 
@@ -229,7 +229,7 @@ class TLDetector(object):
 
         if self.pose and self.waypoints:
 
-            
+
             vehicle_wp = self.get_closest_waypoint(self.pose)
             self.last_known_wp = vehicle_wp
             nearest_dist = 1e8
