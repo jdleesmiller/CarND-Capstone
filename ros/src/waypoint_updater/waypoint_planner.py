@@ -48,7 +48,7 @@ def getClosestForwardLight(lights, position, yaw):
             min_index = index
     head = np.arctan2(lights[min_index].pose.pose.position.y - position.y , \
                       lights[min_index].pose.pose.position.x - position.x)
-    if np.abs(head - yaw) > np.pi/2:
+    if np.abs(head - yaw) > np.pi/2 or min_distance < 22:
         min_index += 1
         if min_index >= len(lights):
             min_index -= len(lights)
@@ -178,7 +178,7 @@ class WaypointPlanner(object):
             if d < light_distance:
                 light_distance = d
                 light_index = index
-        light_index -= 30 # Light positions are directly underneath, stop before it
+        light_index -= 40 # Light positions are directly underneath, stop before it
         # Check to be sure closest waypoint is not behind us
         head = np.arctan2(self.base_waypoints[min_index].pose.pose.position.y   \
                                                             - self.position.y , \
@@ -201,12 +201,14 @@ class WaypointPlanner(object):
         distToLight = self.distance(self.base_waypoints,min_index,light_index) # meters
         currentSpeed = self.get_waypoint_velocity(WPs[min_index]) # Current m/s target
 
-        if self.lights[index_to_lights].state == 0 and min_index >= light_index:
+        if self.lights[index_to_lights].state != 2 and min_index >= light_index:
             # Stop for sure if already past desired position
+            self.targetWaypoint = None
             setSpeed = [0]*num_waypoints
         else:
             # Check distance to light
-            if self.lights[index_to_lights].state == 0 and distToLight < decelDist and not self.initialize:
+            if self.lights[index_to_lights].state != 2 and distToLight < decelDist and not self.initialize:
+                self.targetWaypoint = None
                 setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index, distToLight, num_waypoints, False)
             else: # Full speed ahead
                 if np.abs(currentSpeed-targetSpeed) < 0.01:
@@ -225,7 +227,11 @@ class WaypointPlanner(object):
         #print(setSpeed)
         for i in range(num_waypoints-1): # Loop through all waypoints in list
             self.set_waypoint_velocity(WPs,min_index+i,setSpeed[i])
-        #print(min_index, light_index, distToLight, self.get_waypoint_velocity(WPs[min_index]), self.lights[index_to_lights].state)
+
+        di = np.sqrt((self.position.x-self.lights[index_to_lights].pose.pose.position.x)**2 + \
+                     (self.position.y-self.lights[index_to_lights].pose.pose.position.y)**2)
+
+        #print(min_index, light_index, distToLight, self.get_waypoint_velocity(WPs[min_index]), self.lights[index_to_lights].state, di)
         max_index = min_index + num_waypoints
         if max_index >= len(self.base_waypoints):
             max_index -= len(self.base_waypoints)
