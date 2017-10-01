@@ -97,9 +97,11 @@ class Controller(object):
 
         # rospy.logwarn_throttle(
         #     0.5,
-        #     'target=%.2f curr=%.2f (%.2f) a=%.2f t=%.2f b=%.2f' % (
+        #     'target=%.2f curr=%.2f (%.2f) e=%.2f a=%.2f t=%.2f b=%.2f '
+        #     'i=%.2f' % (
         #         target_speed, current_speed, unfiltered_current_speed,
-        #         speed_control, throttle, brake))
+        #         speed_error, speed_control, throttle, brake,
+        #         self.speed_pid.int_val))
 
         steer = self.yaw_controller.get_steering(
             target_speed, target_angular_velocity, current_speed)
