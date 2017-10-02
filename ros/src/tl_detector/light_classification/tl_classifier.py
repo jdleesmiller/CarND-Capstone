@@ -15,7 +15,9 @@ from styx_msgs.msg import TrafficLight
 PATH_TO_CHECKPOINT = 'frozen_inference_graph.pb'
 TRAFFIC_LIGHT_CLASS = 10
 MIN_SCORE_THRESHOLD = .75
-MAX_DETECTIONS = 4
+MAX_DETECTIONS = 10
+MIN_BOX_WIDTH = 15
+MAX_BOX_RATIO = 0.55
 
 TRAFFIC_LIGHT_SHAPE = (8, 24)
 HSV_V_THRESHOLD = 210
@@ -113,6 +115,7 @@ class TLClassifier(object):
         with self.detection_graph.as_default():
             with tf.Session(graph=self.detection_graph) as sess:
                 # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
+                im_height, im_width, _ = image.shape
                 image_input = np.expand_dims(image, axis=0)
                 # Actual detection.
                 (boxes, scores, classes, num) = sess.run(
@@ -127,24 +130,23 @@ class TLClassifier(object):
 
                 for i in reversed(sorted_indexes):
                     if classes[i] == TRAFFIC_LIGHT_CLASS and scores[i] >= MIN_SCORE_THRESHOLD:
-                        _, im_height, im_width, _ = image_input.shape
                         ymin, xmin, ymax, xmax = (
                             int(math.floor(boxes[i][0] * im_height)), int(math.floor(boxes[i][1] * im_width)),
-                            int(math.floor(boxes[i][2] * im_height)), int(math.floor(boxes[i][3] * im_width))
+                            int(math.ceil(boxes[i][2] * im_height)), int(math.ceil(boxes[i][3] * im_width))
                         )
                         box_h = ymax - ymin
                         box_w = xmax - xmin
-                        if box_h < 2 * box_w:
-                            continue
+                        box_ratio = box_w / box_h
 
-                        tl_image = np.copy(image[ymin:ymax, xmin:xmax, :])
-                        state = self.get_traffic_light_state(tl_image)
-                        #rospy.loginfo("Traffic light detection (%d,%d,%d,%d)->%d", xmin, ymin, xmax, ymax, int(state))
+                        if (box_w >= MIN_BOX_WIDTH) and (box_ratio <= MAX_BOX_RATIO):
+                            tl_image = np.copy(image[ymin:ymax, xmin:xmax, :])
+                            state = self.get_traffic_light_state(tl_image)
+                            #rospy.loginfo("Traffic light detection (%d,%d,%d,%d)->%d", xmin, ymin, xmax, ymax, int(state))
 
-                        tl_states.append(state)
+                            tl_states.append(state)
 
-                        if len(tl_states) >= MAX_DETECTIONS:
-                            break
+                            if len(tl_states) >= MAX_DETECTIONS:
+                                break
 
         if len(tl_states) > 0:
             data = Counter(tl_states)
