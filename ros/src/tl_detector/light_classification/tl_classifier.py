@@ -57,6 +57,7 @@ class TLClassifier(object):
             self.detection_scores = self.detection_graph.get_tensor_by_name('detection_scores:0')
             self.detection_classes = self.detection_graph.get_tensor_by_name('detection_classes:0')
             self.num_detections = self.detection_graph.get_tensor_by_name('num_detections:0')
+            self.session = tf.Session(graph=self.detection_graph)
 
     def get_traffic_light_state(self, image):
 
@@ -126,40 +127,39 @@ class TLClassifier(object):
         """
         tl_states = []
         with self.detection_graph.as_default():
-            with tf.Session(graph=self.detection_graph) as sess:
-                # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
-                im_height, im_width, _ = image.shape
-                image_input = np.expand_dims(image, axis=0)
-                # Actual detection.
-                (boxes, scores, classes, num) = sess.run(
-                    [self.detection_boxes, self.detection_scores, self.detection_classes, self.num_detections],
-                    feed_dict={self.image_tensor: image_input})
-                # Visualization of the results of a detection.
-                boxes = np.squeeze(boxes)
-                scores = np.squeeze(scores)
-                classes = np.squeeze(classes).astype(np.int32)
+            # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
+            im_height, im_width, _ = image.shape
+            image_input = np.expand_dims(image, axis=0)
+            # Actual detection.
+            (boxes, scores, classes, num) = self.session.run(
+                [self.detection_boxes, self.detection_scores, self.detection_classes, self.num_detections],
+                feed_dict={self.image_tensor: image_input})
+            # Visualization of the results of a detection.
+            boxes = np.squeeze(boxes)
+            scores = np.squeeze(scores)
+            classes = np.squeeze(classes).astype(np.int32)
 
-                sorted_indexes = np.argsort(scores)
+            sorted_indexes = np.argsort(scores)
 
-                for i in reversed(sorted_indexes):
-                    if classes[i] == TRAFFIC_LIGHT_CLASS and scores[i] >= MIN_SCORE_THRESHOLD:
-                        ymin, xmin, ymax, xmax = (
-                            int(math.floor(boxes[i][0] * im_height)), int(math.floor(boxes[i][1] * im_width)),
-                            int(math.ceil(boxes[i][2] * im_height)), int(math.ceil(boxes[i][3] * im_width))
-                        )
-                        box_h = ymax - ymin
-                        box_w = xmax - xmin
-                        box_ratio = box_w / box_h
+            for i in reversed(sorted_indexes):
+                if classes[i] == TRAFFIC_LIGHT_CLASS and scores[i] >= MIN_SCORE_THRESHOLD:
+                    ymin, xmin, ymax, xmax = (
+                        int(math.floor(boxes[i][0] * im_height)), int(math.floor(boxes[i][1] * im_width)),
+                        int(math.ceil(boxes[i][2] * im_height)), int(math.ceil(boxes[i][3] * im_width))
+                    )
+                    box_h = ymax - ymin
+                    box_w = xmax - xmin
+                    box_ratio = box_w / box_h
 
-                        if (box_w >= MIN_BOX_WIDTH) and (box_ratio <= MAX_BOX_RATIO):
-                            tl_image = np.copy(image[ymin:ymax, xmin:xmax, :])
-                            state = self.get_traffic_light_state(tl_image)
-                            #rospy.loginfo("Traffic light detection (%d,%d,%d,%d)->%d", xmin, ymin, xmax, ymax, int(state))
+                    if (box_w >= MIN_BOX_WIDTH) and (box_ratio <= MAX_BOX_RATIO):
+                        tl_image = np.copy(image[ymin:ymax, xmin:xmax, :])
+                        state = self.get_traffic_light_state(tl_image)
+                        #rospy.loginfo("Traffic light detection (%d,%d,%d,%d)->%d", xmin, ymin, xmax, ymax, int(state))
 
-                            tl_states.append(state)
+                        tl_states.append(state)
 
-                            if len(tl_states) >= MAX_DETECTIONS:
-                                break
+                        if len(tl_states) >= MAX_DETECTIONS:
+                            break
 
         if len(tl_states) > 0:
             data = Counter(tl_states)
