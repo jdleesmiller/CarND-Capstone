@@ -1,10 +1,13 @@
 import rospy
+import os
+import shutil
 import numpy as np
 import math
 
 import tensorflow as tf
 import cv2
 
+from glob import iglob
 from datetime import datetime
 from collections import Counter
 from styx_msgs.msg import TrafficLight
@@ -28,6 +31,16 @@ class TLClassifier(object):
 
         self.h1 = self.h // 3
         self.h2 = (2 * self.h) // 3
+
+        # if frozen_inference_graph.pb does not exist, build it from chunks
+        if not os.path.exists(PATH_TO_CHECKPOINT):
+            rospy.loginfo("Creating Tensorflow inference graph from chunks...")
+            destination = open(PATH_TO_CHECKPOINT, 'wb')
+            for filename in sorted(iglob('graph_chunks/chunk*')):
+                rospy.loginfo("Adding %s to %s", filename, PATH_TO_CHECKPOINT)
+                shutil.copyfileobj(open(filename, 'rb'), destination)
+            destination.close()
+            rospy.loginfo("%s successfully created from chunks", PATH_TO_CHECKPOINT)
 
         self.detection_graph = tf.Graph()
         with self.detection_graph.as_default():
