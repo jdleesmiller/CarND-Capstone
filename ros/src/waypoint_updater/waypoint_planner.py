@@ -9,6 +9,9 @@ targetSpeed = 10 # m/s ---- 4.4074 m/s = 10 MPH
 accelDist = 10 # Distance over which acceleration should occur
 decelDist = 100 # Distance over which deceleration should occur
 
+# Number of waypoints before the traffic light waypoint to stop
+STOP_EARLY_COUNT = 3
+
 def minJerk(T, si, siDot, siDDot, sf, sfDot, sfDDot):
     if T == 0:
         #print("Passed zero time")
@@ -203,7 +206,7 @@ class WaypointPlanner(object):
             if index >= len(self.base_waypoints):
                 index = 0
         self.lastWaypoint = copy.copy(min_index)
-        light_index -= 40 # Light positions are directly underneath, stop before it
+        light_index -= STOP_EARLY_COUNT # Light positions are directly underneath, stop before it
         # Check to be sure closest waypoint is not behind us
         head = np.arctan2(self.base_waypoints[min_index].pose.pose.position.y   \
                                                             - self.position.y , \
@@ -222,7 +225,7 @@ class WaypointPlanner(object):
                                                                 - self.position.x)
 
         WPs = self.base_waypoints # Just temporary as shortcut for variable name
-        if min_index > light_index and light_index > min_index-40:
+        if min_index > light_index and light_index > min_index-STOP_EARLY_COUNT:
             distToLight = 0
         else:
             distToLight = self.distance(self.base_waypoints,min_index,light_index) # meters
