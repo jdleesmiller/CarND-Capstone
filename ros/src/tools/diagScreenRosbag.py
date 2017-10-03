@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import math
 import yaml
 import os
+from threading import Lock
 
 MPS = 0.44704
 
@@ -71,6 +72,7 @@ class GenerateDiagnostics():
 
         self.steering_cmd = 0.
         self.traffic_light_to_waypoint_map = []
+        self.fwaypoints_lock = Lock()
         self.fwaypointsx = []
         self.fwaypointsy = []
         self.fwaypointss = []
@@ -265,20 +267,20 @@ class GenerateDiagnostics():
             self.traffic_light_to_waypoint_map.append(tlwp)
 
     def fwaypoints_cb(self, msg):
-        # DONE: Implement
-        waypoints = []
-        fx = []
-        fy = []
-        fs = []
-        for i in range(len(msg.waypoints)):
-            fx.append(float(msg.waypoints[i].pose.pose.position.x*75+510))
-            fy.append(self.img_rows-(float(msg.waypoints[i].pose.pose.position.y*75+212)))
-            fs.append(int(msg.waypoints[i].twist.twist.linear.x/(self.restricted_speed*MPS)*255))
-        self.fwaypointsx = fx
-        self.fwaypointsy = fy
-        self.fwaypointss = fs
-        self.fwaypointx = fx[0]
-        self.fwaypointy = fy[0]
+	with self.fwaypoints_lock:
+            waypoints = []
+            fx = []
+            fy = []
+            fs = []
+            for i in range(len(msg.waypoints)):
+                fx.append(float(msg.waypoints[i].pose.pose.position.x*75+510))
+                fy.append(self.img_rows-(float(msg.waypoints[i].pose.pose.position.y*75+212)))
+                fs.append(int(msg.waypoints[i].twist.twist.linear.x/(self.restricted_speed*MPS)*255))
+            self.fwaypointsx = fx
+            self.fwaypointsy = fy
+            self.fwaypointss = fs
+            self.fwaypointx = fx[0]
+            self.fwaypointy = fy[0]
 
     def nextWaypoint(self, pose):
         """Identifies the next path waypoint to the given position
@@ -345,19 +347,20 @@ class GenerateDiagnostics():
         y = int(self.img_rows-(self.waypoints[lastwp].pose.pose.position.y*75+212))
         cv2.circle(img, (x, y), size2,  color2, -1)
 
-    def drawFinalWaypoints(self, img, size=1, size2=15):
-        for i in range(len(self.fwaypointsx)):
-            if self.fwaypointss[i] > 0:
-                color = (0, 192, 0)
-            else:
-                color = (192, 0, 0)
-            cv2.circle(img, (int(self.fwaypointsx[i]), int(self.fwaypointsy[i])), size, color, -1)
-        if len(self.fwaypointsx) > 0:
-            if self.fwaypointss[i] > 0:
-                color = (0, 192, 0)
-            else:
-                color = (192, 0, 0)
-            cv2.circle(img, (int(self.fwaypointsx[0]), int(self.fwaypointsy[0])), size2, color, -1)
+    def drawFinalWaypoints(self, img, size=5, size2=15):
+	with self.fwaypoints_lock:
+            for i in range(len(self.fwaypointsx)):
+                if self.fwaypointss[i] > 0:
+                    color = (0, 192, 0)
+                else:
+                    color = (192, 0, 0)
+                cv2.circle(img, (int(self.fwaypointsx[i]), int(self.fwaypointsy[i])), size, color, -1)
+            if len(self.fwaypointsx) > 0:
+                if self.fwaypointss[0] > 0:
+                    color = (0, 192, 0)
+                else:
+                    color = (192, 0, 0)
+                cv2.circle(img, (int(self.fwaypointsx[0]), int(self.fwaypointsy[0])), size2, color, -1)
 
     def drawTrafficLights(self, img, size=10):
         font = cv2.FONT_HERSHEY_COMPLEX
