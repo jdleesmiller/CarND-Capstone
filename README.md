@@ -61,7 +61,7 @@ unzip traffic_light_bag_files.zip
 ```bash
 rosbag play -l traffic_light_bag_files/loop_with_traffic_light.bag
 ```
-4. Run the Rosbag Diagnostics: `rosrun tools diagScreenRosbag.py` (NB: this utility comes from [Team Vulture](https://github.com/diyjac/SDC-System-Integration))
+4. Run the Rosbag Diagnostics: `rosrun tools diagScreenRosbag.py` (NB: this utility comes from [Team Vulture](https://github.com/diyjac/SDC-System-Integration); you need to `pip install pygame` first.)
 5. Launch your project in site mode
 ```bash
 cd CarND-Capstone/ros
