@@ -77,6 +77,8 @@ class WaypointPlanner(object):
         waypoints[waypoint].twist.twist.linear.x = velocity
 
     def distance(self, waypoints, wp1, wp2):
+        if wp2 >= len(waypoints):
+            wp2 -= len(waypoints)
         dist = 0
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
         wp = copy.copy(wp1)
@@ -94,7 +96,10 @@ class WaypointPlanner(object):
 
     def getJMT(self, currentSpeed, WPs, min_index, light_index, distToLight, num_waypoints, accelerate):
         # Uses jerk minimizing trajectory to determine speeds for wayPoints WPs
-        vNext = self.get_waypoint_velocity(WPs[min_index+1]) # m/s
+        if min_index+1 == len(WPs):
+            vNext = self.get_waypoint_velocity(WPs[0]) # m/s
+        else:
+            vNext = self.get_waypoint_velocity(WPs[min_index+1]) # m/s
         dv = vNext - currentSpeed # m/s
         dx = self.distance(WPs,min_index,min_index+1) # m
         if np.abs(vNext+currentSpeed) < 0.01: # Are at a stop
