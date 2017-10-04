@@ -2,10 +2,10 @@ import rospy
 import os
 import shutil
 import numpy as np
-import math
 
 import tensorflow as tf
 import cv2
+import yaml
 
 from glob import iglob
 from datetime import datetime
@@ -20,7 +20,7 @@ TRAFFIC_LIGHT_CLASS = 10
 MIN_SCORE_THRESHOLD = .75
 MAX_DETECTIONS = 10
 MIN_BOX_WIDTH = 15
-MAX_BOX_RATIO = 0.55
+MAX_BOX_RATIO = 0.6
 
 TRAFFIC_LIGHT_SHAPE = (8, 24)
 HSV_V_THRESHOLD = 210
@@ -31,6 +31,15 @@ class TLClassifier(object):
 
         self.h1 = self.h // 3
         self.h2 = (2 * self.h) // 3
+
+        config_string = rospy.get_param("/traffic_light_config")
+        self.config = yaml.load(config_string)
+
+        self.crop = None
+        if 'image_crop' in self.config['camera_info']:
+            self.crop = self.config['camera_info']['image_crop']
+            if any(k not in self.crop.keys() for k in ('bottom', 'top')):
+                self.crop = None
 
         # if frozen_inference_graph.pb does not exist, build it from chunks
         if not os.path.exists(PATH_TO_CHECKPOINT):
@@ -128,6 +137,8 @@ class TLClassifier(object):
         tl_states = []
         with self.detection_graph.as_default():
             # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
+            if self.crop:
+                image = image[self.crop['top']:self.crop['bottom'], :, :]
             im_height, im_width, _ = image.shape
             image_input = np.expand_dims(image, axis=0)
             # Actual detection.
@@ -144,8 +155,8 @@ class TLClassifier(object):
             for i in reversed(sorted_indexes):
                 if classes[i] == TRAFFIC_LIGHT_CLASS and scores[i] >= MIN_SCORE_THRESHOLD:
                     ymin, xmin, ymax, xmax = (
-                        int(math.floor(boxes[i][0] * im_height)), int(math.floor(boxes[i][1] * im_width)),
-                        int(math.ceil(boxes[i][2] * im_height)), int(math.ceil(boxes[i][3] * im_width))
+                        int(round(boxes[i][0] * im_height)), int(round(boxes[i][1] * im_width)),
+                        int(round(boxes[i][2] * im_height)), int(round(boxes[i][3] * im_width))
                     )
                     box_h = ymax - ymin
                     box_w = xmax - xmin
