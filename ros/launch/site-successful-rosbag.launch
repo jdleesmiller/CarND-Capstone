@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Don't launch anything; just play back content from the rosbag. -->
+</launch>
