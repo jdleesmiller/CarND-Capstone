@@ -25,8 +25,9 @@ class TLDetector(object):
         self.camera_image = None
         self.stop_line_waypoints = []
         self.lights = []
-        self.use_ground_truth = True
         self.last_known_wp = 0
+
+        self.use_ground_truth = rospy.get_param("/use_ground_truth")
 
         if not self.use_ground_truth:
             rospy.loginfo("Initializing classifier...")
