@@ -84,7 +84,7 @@ class WaypointUpdater(object):
         self.final_waypoints_pub.publish(lane)
 
     def run(self):
-        rate = rospy.Rate(1)
+        rate = rospy.Rate(10)
 
         start_time = 0
         while not start_time:
