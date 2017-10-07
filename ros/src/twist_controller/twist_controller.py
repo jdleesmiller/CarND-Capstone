@@ -11,11 +11,11 @@ from yaw_controller import YawController
 # Gains for the speed PID controller. See README for details of how these were
 # tuned.
 #
-SPEED_KP = 1.6964451905384597
-SPEED_KI = 0.010260805758487174
-SPEED_KD = 0.009461065000648269
+SPEED_KP = 2.049999999999998
+SPEED_KI = 0.0940841104155
+SPEED_KD = 0.158782882613904
 
-SPEED_FILTER_TAU = 0.2
+SPEED_FILTER_TAU = 20.0
 YAW_CONTROLLER_MIN_SPEED = 1.0
 
 # Watching `rostopic echo /vehicle/*_report`:
@@ -38,7 +38,7 @@ class Controller(object):
         self.brake_deadband = brake_deadband
         self.wheel_radius = wheel_radius
 
-        self.speed_filter = LowPassFilter(SPEED_FILTER_TAU, 1.0)
+        self.throttle_filter = LowPassFilter(SPEED_FILTER_TAU, 1.0)
         self.speed_pid = PID(
             SPEED_KP, SPEED_KI, SPEED_KD, decel_limit, accel_limit)
         # Tuning: self.speed_pid_tuner = SpeedPIDTuner(self.speed_pid)
@@ -70,15 +70,16 @@ class Controller(object):
         # These appear to be m/s and rad/s.
         target_speed = self.twist_cmd.twist.linear.x
         target_angular_velocity = self.twist_cmd.twist.angular.z
-        unfiltered_current_speed = self.current_velocity.twist.linear.x
-        current_speed = self.speed_filter.filt(unfiltered_current_speed)
+        current_speed = self.current_velocity.twist.linear.x
 
         t = rospy.get_rostime()
         dt = (t - self.t).to_sec()
 
         speed_error = target_speed - current_speed
-        # Tuning: self.speed_pid_tuner.step(target_speed, speed_error, dt)
-        speed_control = self.speed_pid.step(speed_error, dt)
+        raw_speed_control = self.speed_pid.step(speed_error, dt)
+        speed_control = self.throttle_filter.filt(raw_speed_control)
+        # Tuning: self.speed_pid_tuner.step(
+        #     target_speed, speed_error, speed_control, dt)
         if speed_control >= 0:
             throttle = speed_control
             brake = 0
