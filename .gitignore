@@ -8,3 +8,4 @@ devel
 profile.tmp
 
 data/*.bag
+ros/src/tl_detector/frozen_inference_graph.pb
