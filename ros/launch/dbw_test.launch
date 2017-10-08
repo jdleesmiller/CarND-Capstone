@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+    <!--DBW Test -->
+    <include file="$(find twist_controller)/launch/dbw_test.launch"/>
+</launch>
+

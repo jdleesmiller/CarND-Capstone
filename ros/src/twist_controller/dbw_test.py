@@ -60,7 +60,7 @@ class DBWTestNode(object):
         rate = rospy.Rate(10)  # 10Hz
         while not rospy.is_shutdown():
             rate.sleep()
-        fieldnames = ['actual', 'proposed']
+        fieldnames = ['time', 'actual', 'proposed']
 
         with open(self.steerfile, 'w') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -91,20 +91,26 @@ class DBWTestNode(object):
 
     def actual_steer_cb(self, msg):
         if self.dbw_enabled and self.steer is not None:
-            self.steer_data.append({'actual': msg.steering_wheel_angle_cmd,
-                                    'proposed': self.steer})
+            self.steer_data.append({
+                'time': rospy.get_time(),
+                'actual': msg.steering_wheel_angle_cmd,
+                'proposed': self.steer})
             self.steer = None
 
     def actual_throttle_cb(self, msg):
         if self.dbw_enabled and self.throttle is not None:
-            self.throttle_data.append({'actual': msg.pedal_cmd,
-                                       'proposed': self.throttle})
+            self.throttle_data.append({
+                'time': rospy.get_time(),
+                'actual': msg.pedal_cmd,
+                'proposed': self.throttle})
             self.throttle = None
 
     def actual_brake_cb(self, msg):
         if self.dbw_enabled and self.brake is not None:
-            self.brake_data.append({'actual': msg.pedal_cmd,
-                                    'proposed': self.brake})
+            self.brake_data.append({
+                'time': rospy.get_time(),
+                'actual': msg.pedal_cmd,
+                'proposed': self.brake})
             self.brake = None
 
 
