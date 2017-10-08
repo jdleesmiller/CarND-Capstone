@@ -22,10 +22,11 @@ class WaypointLoader(object):
 
         self.pub = rospy.Publisher('/base_waypoints', Lane, queue_size=1, latch=True)
 
-        # TODO: This converts from km/h to m/s, and the speed is
+        # Note: This converts from km/h to m/s, and the speed is
         # 40km/h in the launch file for the sim, but the instructions
         # are to cap to 10mph on Carla, and the value in the launch
-        # file for Carla is 10. Need to make these consistent.
+        # file for Carla is 10km/h. The view on Slack seems to be that
+        # it's best to stick to 10 km/h.
         self.velocity = self.kmph2mps(rospy.get_param('~velocity'))
         self.new_waypoint_loader(rospy.get_param('~path'))
         rospy.spin()
