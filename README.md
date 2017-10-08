@@ -1,70 +1,41 @@
-This is the project repo for the final project of the Udacity Self-Driving Car Nanodegree: Programming a Real Self-Driving Car. For more information about the project, see the project introduction [here](https://classroom.udacity.com/nanodegrees/nd013/parts/6047fe34-d93c-4f50-8336-b70ef10cb4b2/modules/e1a23b06-329a-4684-a717-ad476f0d8dff/lessons/462c933d-9f24-42d3-8bdc-a08a5fc866e4/concepts/5ab4b122-83e6-436d-850f-9f4d26627fd9).
+# MARS CARS
 
-### Native Installation
+Udacity Term 3 Capstone Project
 
-* Be sure that your workstation is running Ubuntu 16.04 Xenial Xerus or Ubuntu 14.04 Trusty Tahir. [Ubuntu downloads can be found here](https://www.ubuntu.com/download/desktop).
-* If using a Virtual Machine to install Ubuntu, use the following configuration as minimum:
-  * 2 CPU
-  * 2 GB system memory
-  * 25 GB of free hard drive space
+## Team Members:
 
-  The Udacity provided virtual machine has ROS and Dataspeed DBW already installed, so you can skip the next two steps if you are using this.
 
-* Follow these instructions to install ROS
-  * [ROS Kinetic](http://wiki.ros.org/kinetic/Installation/Ubuntu) if you have Ubuntu 16.04.
-  * [ROS Indigo](http://wiki.ros.org/indigo/Installation/Ubuntu) if you have Ubuntu 14.04.
-* [Dataspeed DBW](https://bitbucket.org/DataspeedInc/dbw_mkz_ros)
-  * Use this option to install the SDK on a workstation that already has ROS installed: [One Line SDK Install (binary)](https://bitbucket.org/DataspeedInc/dbw_mkz_ros/src/81e63fcc335d7b64139d7482017d6a97b405e250/ROS_SETUP.md?fileviewer=file-view-default)
-* Download the [Udacity Simulator](https://github.com/udacity/CarND-Capstone/releases/tag/v1.2).
+| Name        | Email           | Slack  |
+| ------------- |:-------------:| -----:|
+| Brendan Schell     | brendanschell1@gmail.com | @schellbrendan |
+| Miguel A. Roman      | Roman:mangelroman@gmail.com      |   @mangelroman |
+| John Lees-Miller | jdleesmiller@gmail.com     |    @jdleesmiller |
+| Kevin McFall | kmcfall@kennesaw.edu     |    @kmacprof |
+| Robbie Edwards | rob.a.edwards@gmail.com     |    @waterfox |
 
-### Docker Installation
-[Install Docker](https://docs.docker.com/engine/installation/)
 
-Build the docker container
-```bash
-docker build . -t capstone
-```
+## Traffic Light detection
 
-Run the docker file
-```bash
-docker run -p 127.0.0.1:4567:4567 -v $PWD:/capstone -v /tmp/log:/root/.ros/ --rm -it capstone
-```
+### Detection
 
-### Usage
+Traffic light detection was accomplished by using the tensorflow object detection API to build and train a model to recognize traffic lights in the full frame image from the vehicle's camera. The model was initially trained with the Bosch Small Traffic Light Dataset but it was found that this overfit the Bosch set and was not effective for the project. A pretrained standard model was implemented to detect traffic light locations and bounding boxes in the image and pass these to separate classifier. The model used for detection was Resnet101 with the COCO dataset
 
-1. Clone the project repository
-```bash
-git clone https://github.com/udacity/CarND-Capstone.git
-```
+ - [Tensorflow Object Detection API](https://github.com/tensorflow/models/tree/master/research/object_detection)
+ - [Bosch Small Traffic Light Dataset ](https://hci.iwr.uni-heidelberg.de/node/6132)
 
-2. Install python dependencies
-```bash
-cd CarND-Capstone
-pip install -r requirements.txt
-```
-3. Make and run styx
-```bash
-cd ros
-catkin_make
-source devel/setup.sh
-roslaunch launch/styx.launch
-```
-4. Run the simulator
+Note that when the model is initially loaded, the tensorflow graph file is constructed from mulitple chunks and then saved locally.
 
-### Real world testing
-1. Download [training bag](https://drive.google.com/file/d/0B2_h37bMVw3iYkdJTlRSUlJIamM/view?usp=sharing) that was recorded on the Udacity self-driving car (a bag demonstraing the correct predictions in autonomous mode can be found [here](https://drive.google.com/open?id=0B2_h37bMVw3iT0ZEdlF4N01QbHc))
-2. Unzip the file
-```bash
-unzip traffic_light_bag_files.zip
-```
-3. Play the bag file (it will wait for the ros master to start, below)
-```bash
-rosbag play -l traffic_light_bag_files/loop_with_traffic_light.bag
-```
-4. Run the Rosbag Diagnostics: `rosrun tools diagScreenRosbag.py` (NB: this utility comes from [Team Vulture](https://github.com/diyjac/SDC-System-Integration); you need to `pip install pygame` first.)
-5. Launch your project in site mode
-```bash
-cd CarND-Capstone/ros
-roslaunch launch/site-rosbag.launch
-```
-6. Confirm that traffic light detection works on real life images
+### Classfier
+
+A classifier was implemented based on using the traffic light image from the detected bounding box and transforming to the HSV color space to check for Hue values in ranges for red, yellow and green to classify the lights. The V: value parameter was also measured in the image locations corresponding to the red, yellow and green lights. The information extracted form the H and V channels was combined and scored and used to classify the traffic light state.
+
+
+### Other approaches
+
+Initially, we attemped to extract traffic light location in an image based on available poses for the car and traffic lights and using the CV2 pin hole camera projection function.  This proved infeasible as only the traffic light stop line location was given and the camera pose and focal length parameters were not given correctly. These could have been determined emperically, but at this point the Deep Learning based approach was acheiving good results. Other groups appeared to have some success with this geometrical approach to detemining traffic light locations.
+
+
+
+## Waypoint updater
+
+## Drive by Wire Node
