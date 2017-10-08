@@ -72,3 +72,5 @@ The following video illustrates traffic light classification with the ROSbag dat
 <a href="http://www.youtube.com/watch?feature=player_embedded&v=cifYvqjr7ek
 " target="_blank"><img src="http://img.youtube.com/vi/cifYvqjr7ek/0.jpg"
 alt="IMAGE ALT TEXT HERE" width="240" height="180" border="10" /></a>
+
+The data visualization tool diagScreen.py created by one of the Udacity Capstone teams was used and found to be useful for testing, debugging and visualize data during the project. 
