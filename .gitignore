@@ -1,6 +1,7 @@
 *.py[cod]
 .*.sw[op]
 .ropeproject
+.ipynb_checkpoints
 
 build
 devel
