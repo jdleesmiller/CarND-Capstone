@@ -227,8 +227,12 @@ class TLDetector(object):
             # rospy.loginfo("Saving new image %s", file_name)
             # cv2.imwrite(file_name, save_image)
             # DEBUG END
-            rospy.loginfo("Classifying new image seq=%d", self.camera_image.header.seq)
+            start_time = rospy.get_time()
             state = self.light_classifier.get_classification(cv_image)
+            rospy.loginfo(
+                "Classified new image: state=%d seq=%d in %.2fs",
+                state, self.camera_image.header.seq,
+                rospy.get_time() - start_time)
 
         return state
 
