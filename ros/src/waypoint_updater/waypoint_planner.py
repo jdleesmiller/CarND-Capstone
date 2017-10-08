@@ -8,7 +8,7 @@ import copy
 accelDist = 10 # Distance over which acceleration should occur
 decelDist = 100 # Distance over which deceleration should occur
 
-# Number of waypoints before the traffic light waypoint to stop
+# Distance in m before the traffic light waypoint to stop
 STOP_EARLY_DIST = 35
 
 def minJerk(T, si, siDot, siDDot, sf, sfDot, sfDDot):
