@@ -6,6 +6,7 @@
         <param name="brake_deadband" value=".1" />
         <param name="decel_limit" value="-1." />
         <param name="accel_limit" value="1." />
+        <param name="max_throttle" value="0.025" />
         <param name="wheel_radius" value="0.2413" />
         <param name="wheel_base" value="2.8498" />
         <param name="steer_ratio" value="14.8" />

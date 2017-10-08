@@ -47,6 +47,7 @@ class DBWNode(object):
             brake_deadband=rospy.get_param('~brake_deadband', .1),
             decel_limit=rospy.get_param('~decel_limit', -5.),
             accel_limit=rospy.get_param('~accel_limit', 1.),
+            max_throttle=rospy.get_param('~max_throttle', 1.),
             wheel_base=rospy.get_param('~wheel_base', 2.8498),
             steer_ratio=rospy.get_param('~steer_ratio', 14.8),
             max_lat_accel=rospy.get_param('~max_lat_accel', 3.),

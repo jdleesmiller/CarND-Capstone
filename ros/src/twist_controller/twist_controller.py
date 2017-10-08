@@ -29,14 +29,15 @@ YAW_CONTROLLER_MIN_SPEED = 1.0
 
 class Controller(object):
     def __init__(self, vehicle_mass, wheel_radius, brake_deadband,
-                 decel_limit, accel_limit,
+                 decel_limit, accel_limit, max_throttle,
                  wheel_base, steer_ratio, max_lat_accel, max_steer_angle):
 
         self.twist_cmd = None
         self.current_velocity = None
         self.vehicle_mass = vehicle_mass
-        self.brake_deadband = brake_deadband
         self.wheel_radius = wheel_radius
+        self.brake_deadband = brake_deadband
+        self.max_throttle = max_throttle
 
         self.throttle_filter = LowPassFilter(SPEED_FILTER_TAU, 1.0)
         self.speed_pid = PID(
@@ -81,7 +82,7 @@ class Controller(object):
         # Tuning: self.speed_pid_tuner.step(
         #     target_speed, speed_error, speed_control, dt)
         if speed_control >= 0:
-            throttle = speed_control
+            throttle = speed_control * self.max_throttle
             brake = 0
         elif speed_control <= self.brake_deadband or target_speed < 1.0:
             # If we are braking, the control is the torque to be applied by
