@@ -28,11 +28,17 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 LOOKAHEAD_WPS = 30 # Number of waypoints we will publish. You can change this number
 
 
+def kmph2mps(velocity_kmph):
+    return (velocity_kmph * 1000.) / (60. * 60.)
+
+
 class WaypointUpdater(object):
     def __init__(self):
         rospy.init_node('waypoint_updater')
 
-        self.planner = WaypointPlanner(self.wait_for_base_waypoints())
+        max_speed = kmph2mps(rospy.get_param('/waypoint_loader/velocity'))
+        self.planner = WaypointPlanner(
+            self.wait_for_base_waypoints(), max_speed)
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.light_cb)

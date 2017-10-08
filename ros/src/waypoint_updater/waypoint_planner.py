@@ -5,7 +5,6 @@ import rospy
 import yaml
 import copy
 
-targetSpeed = 10 # m/s ---- 4.4074 m/s = 10 MPH
 accelDist = 10 # Distance over which acceleration should occur
 decelDist = 100 # Distance over which deceleration should occur
 
@@ -59,8 +58,9 @@ def getClosestForwardLight(lights, position, yaw):
 
 class WaypointPlanner(object):
 
-    def __init__(self, base_waypoints):
+    def __init__(self, base_waypoints, targetSpeed):
         self.base_waypoints = base_waypoints
+        self.targetSpeed = targetSpeed
         for i in range(len(base_waypoints)):
             self.set_waypoint_velocity(self.base_waypoints,i,0)
         self.position = None
@@ -107,15 +107,15 @@ class WaypointPlanner(object):
         dx = self.distance(WPs,min_index,min_index+1) # m
         if np.abs(vNext+currentSpeed) < 0.01: # Are at a stop
             a = 0
-            T = distToLight/(targetSpeed/2)
+            T = distToLight/(self.targetSpeed/2)
         else:
             dt = dx/((vNext+currentSpeed)/2) # s (dx = vdt)
-            avgSpeed = (currentSpeed+accelerate*targetSpeed)/2 # m/s
+            avgSpeed = (currentSpeed+accelerate*self.targetSpeed)/2 # m/s
             if avgSpeed <= 0:
                 avgSpeed = 0.1
             T = distToLight/avgSpeed  # s (Time to reach target)
             a = dv/dt
-        alpha = minJerk(T, 0,currentSpeed,a, distToLight,accelerate*targetSpeed,0)
+        alpha = minJerk(T, 0,currentSpeed,a, distToLight,accelerate*self.targetSpeed,0)
         setSpeed = [0]*num_waypoints
         if alpha is None: # In case matrix inversion failed
             for i in range(len(setSpeed)):
@@ -129,7 +129,7 @@ class WaypointPlanner(object):
         time = 0
         for i in range(len(setSpeed)):
             if min_index+i > light_index: # If past stop line at light
-                setSpeed[i] = accelerate*targetSpeed
+                setSpeed[i] = accelerate*self.targetSpeed
             else:
                 coeff[-1] = alpha[-1] - self.distance(WPs,min_index,min_index+i)
                 roots = np.roots(coeff) # Solve positin polynomial for time
@@ -228,8 +228,8 @@ class WaypointPlanner(object):
                     self.targetWaypoint = None
                     setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index, distToLight, num_waypoints, False)
                 else: # Full speed ahead
-                    if np.abs(currentSpeed-targetSpeed) < 0.01:
-                        setSpeed = [targetSpeed]*num_waypoints
+                    if np.abs(currentSpeed-self.targetSpeed) < 0.01:
+                        setSpeed = [self.targetSpeed]*num_waypoints
                         self.targetWaypoint = None
                     else:
                         if self.targetWaypoint is None:
