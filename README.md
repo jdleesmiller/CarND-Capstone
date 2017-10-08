@@ -8,7 +8,7 @@ Udacity Term 3 Capstone Project
 | Name        | Email           | Slack  |
 | ------------- |:-------------:| -----:|
 | Brendan Schell     | brendanschell1@gmail.com | @schellbrendan |
-| Miguel A. Roman      | Roman:mangelroman@gmail.com      |   @mangelroman |
+| Miguel A. Roman      | mangelroman@gmail.com      |   @mangelroman |
 | John Lees-Miller | jdleesmiller@gmail.com     |    @jdleesmiller |
 | Kevin McFall | kmcfall@kennesaw.edu     |    @kmacprof |
 | Robbie Edwards | rob.a.edwards@gmail.com     |    @waterfox |
