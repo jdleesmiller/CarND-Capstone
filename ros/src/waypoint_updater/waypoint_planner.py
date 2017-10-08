@@ -119,7 +119,7 @@ class WaypointPlanner(object):
         setSpeed = [0]*num_waypoints
         if alpha is None: # In case matrix inversion failed
             for i in range(len(setSpeed)):
-                if min_index+1 >= len(WPs):
+                if min_index+i >= len(WPs):
                     setSpeed[i] = self.get_waypoint_velocity(WPs[min_index+i-len(WPs)])
                 else:
                     setSpeed[i] = self.get_waypoint_velocity(WPs[min_index+i])
