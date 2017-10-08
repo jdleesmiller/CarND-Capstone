@@ -38,4 +38,6 @@ Initially, we attemped to extract traffic light location in an image based on av
 
 ## Waypoint updater
 
+The basic concept is to use a jerk minimizing trajectory (JMT) to slow to a stop in front of red lights or accelerate to full speed on green. The largest challenge is that the JMT provides postion as a function of time rather than speed as a function of postion (or rather waypoint). After determining the JMT, time to reach each waypoint is determined by finding roots for the 5th order polynomial, excluding complex and physically impossible roots. The time derivative of the polynomial is taken to produce speed, and it is evaluated at the time for each waypoint.
+
 ## Drive by Wire Node
