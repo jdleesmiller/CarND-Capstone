@@ -5,18 +5,19 @@ import csv
 
 import rospy
 from std_msgs.msg import Bool
-from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
+from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd
 
 
 '''
-You can use this file to test your DBW code against a bag recorded with a reference implementation.
-The bag can be found in `styx/data` folder.
+You can use this file to test your DBW code against a bag recorded with a
+reference implementation.
+The bag can be downloaded from the link the README.
 
-This file will produce 3 csv files which you can process to figure out how your DBW node is
-performing on various commands.
+This file will produce 3 csv files which you can process to figure out how
+your DBW node is performing on various commands.
 
-`/actual/*` are commands from the recorded bag while `/vehicle/*` are the output of your node.
-
+`/actual/*` are commands from the recorded bag while `/vehicle/*` are the
+output of your node.
 '''
 
 
@@ -24,13 +25,19 @@ class DBWTestNode(object):
     def __init__(self):
         rospy.init_node('dbw_test_node')
 
-        rospy.Subscriber('/vehicle/steering_cmd', SteeringCmd, self.steer_cb)
-        rospy.Subscriber('/vehicle/throttle_cmd', ThrottleCmd, self.throttle_cb)
-        rospy.Subscriber('/vehicle/brake_cmd', BrakeCmd, self.brake_cb)
+        rospy.Subscriber(
+            '/vehicle/steering_cmd', SteeringCmd, self.steer_cb)
+        rospy.Subscriber(
+            '/vehicle/throttle_cmd', ThrottleCmd, self.throttle_cb)
+        rospy.Subscriber(
+            '/vehicle/brake_cmd', BrakeCmd, self.brake_cb)
 
-        rospy.Subscriber('/actual/steering_cmd', SteeringCmd, self.actual_steer_cb)
-        rospy.Subscriber('/actual/throttle_cmd', ThrottleCmd, self.actual_throttle_cb)
-        rospy.Subscriber('/actual/brake_cmd', BrakeCmd, self.actual_brake_cb)
+        rospy.Subscriber(
+            '/actual/steering_cmd', SteeringCmd, self.actual_steer_cb)
+        rospy.Subscriber(
+            '/actual/throttle_cmd', ThrottleCmd, self.actual_throttle_cb)
+        rospy.Subscriber(
+            '/actual/brake_cmd', BrakeCmd, self.actual_brake_cb)
 
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
 
@@ -50,7 +57,7 @@ class DBWTestNode(object):
         self.loop()
 
     def loop(self):
-        rate = rospy.Rate(10) # 10Hz
+        rate = rospy.Rate(10)  # 10Hz
         while not rospy.is_shutdown():
             rate.sleep()
         fieldnames = ['actual', 'proposed']
