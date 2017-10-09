@@ -3,6 +3,7 @@
 import rospy
 from geometry_msgs.msg import PoseStamped
 from styx_msgs.msg import Lane, Waypoint, TrafficLightArray
+from std_msgs.msg import Int32
 
 import tf
 import math
@@ -44,7 +45,7 @@ class WaypointUpdater(object):
         rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.light_cb)
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
-
+        rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
     def wait_for_base_waypoints(self):
@@ -107,7 +108,10 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
-        pass
+        if msg.data != -1:
+            self.planner.nextRedLight = msg.data
+        else:
+            self.planner.nextRedLight = len(self.planner.base_waypoints)
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
