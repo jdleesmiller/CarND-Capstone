@@ -29,12 +29,16 @@ On the first run, the traffic light detector will construct its trained graph fi
 
 ### Detection
 
-Traffic light detection was accomplished by using the Tensorflow Object Detection API to build and train a model to recognize traffic lights in the full frame image from the vehicle's camera. The model was initially trained with the Bosch Small Traffic Light Dataset but it was found that this overfit the Bosch set and was not effective for the project. A pretrained standard model was implemented to detect traffic light locations and bounding boxes in the image and pass these to separate classifier. The model used for detection was RESNET101 with the COCO dataset
+Traffic light detection was accomplished by using the Tensorflow Object Detection API to build and train a model to recognize traffic lights in the full frame image from the vehicle's camera. The model was initially trained with the Bosch Small Traffic Light Dataset but it was found that this overfit the Bosch set and was not effective for the project. A pretrained standard model was implemented to detect traffic light locations and bounding boxes in the image and pass these to separate classifier. The model used for detection was RESNET101 with the COCO dataset.
 
  - [Tensorflow Object Detection API](https://github.com/tensorflow/models/tree/master/research/object_detection)
  - [Bosch Small Traffic Light Dataset ](https://hci.iwr.uni-heidelberg.de/node/6132)
 
-Note that when the model is initially loaded, the tensorflow graph file is constructed from mulitple chunks and then saved locally.
+Note that when the model is initially loaded, the tensorflow graph file is constructed from multiple chunks and then saved locally.
+
+Considering the model is only aimed to detect traffic lights objects, some hyperparameters were fine-tuned for performance gains:
+- Number of region proposals was reduced from 300 to 10, leading to a 2x improvement in detection speed with no impact in traffic light detection accuracy.
+- Input image minimum and maximum window size was set to 600 and 1400 respectively. Images from the simulator (800x600) fit perfectly within these limits, so resizing is not required. Images from Carla's camera (1368x1096) are cropped at the top and bottom to fit the 600 minimum dimension, so resizing is not required either. Avoiding input image resizing significantly improves detection and bounding box location accuracies.
 
 ### Classfier
 
@@ -43,13 +47,13 @@ A classifier was implemented based on using the traffic light image from the det
 
 ### Other approaches
 
-Initially, we attemped to extract traffic light location in an image based on available poses for the car and traffic lights and using the CV2 pin hole camera projection function.  This proved infeasible as only the traffic light stop line location was given and the camera pose and focal length parameters were not given correctly. These could have been determined emperically, but at this point the Deep Learning based approach was acheiving good results. Other groups appeared to have some success with this geometrical approach to detemining traffic light locations.
+Initially, we attempted to extract traffic light location in an image based on available poses for the car and traffic lights and using the CV2 pin hole camera projection function.  This proved infeasible as only the traffic light stop line location was given and the camera pose and focal length parameters were not given correctly. These could have been determined empirically, but at this point the Deep Learning based approach was achieving good results. Other groups appeared to have some success with this geometrical approach to determining traffic light locations.
 
 
 
 ## Waypoint updater
 
-The concept of the waypoint updater is to use a jerk minimizing trajectory (JMT) to slow to a stop in front of red lights or accelerate to full speed on green. The largest challenge is that the JMT provides postion as a function of time rather than speed as a function of postion (or rather waypoint). After determining the JMT, time to reach each waypoint is determined by finding roots for the 5th order polynomial, excluding complex and physically impossible roots. The time derivative of the polynomial is taken to produce speed, and it is evaluated at the time for each waypoint.
+The concept of the waypoint updater is to use a jerk minimizing trajectory (JMT) to slow to a stop in front of red lights or accelerate to full speed on green. The largest challenge is that the JMT provides position as a function of time rather than speed as a function of position (or rather waypoint). After determining the JMT, time to reach each waypoint is determined by finding roots for the 5th order polynomial, excluding complex and physically impossible roots. The time derivative of the polynomial is taken to produce speed, and it is evaluated at the time for each waypoint.
 
 ## Drive by Wire Node
 
@@ -67,10 +71,10 @@ Testing was carried out prior to submission with the Udacity Simulator and the p
 
 All team members carrying out testing observed the car functioning well in the simulator and classifying traffic lights properly with the ROSbag data. Some minor corner cases in the simulator may still be untested.
 
-The following video illustrates traffic light classification with the ROSbag data. 
+The following video illustrates traffic light classification with the ROSbag data.
 
 <a href="http://www.youtube.com/watch?feature=player_embedded&v=cifYvqjr7ek
 " target="_blank"><img src="http://img.youtube.com/vi/cifYvqjr7ek/0.jpg"
 alt="IMAGE ALT TEXT HERE" width="240" height="180" border="10" /></a>
 
-The data visualization tool diagScreen.py created by one of the Udacity Capstone teams was used and found to be useful for testing, debugging and visualize data during the project. 
+The data visualization tool diagScreen.py created by one of the Udacity Capstone teams was used and found to be useful for testing, debugging and visualize data during the project.
