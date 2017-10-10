@@ -84,6 +84,10 @@ class WaypointPlanner(object):
             wp2 -= len(waypoints)
         if wp2 < 0:
             wp2 += len(waypoints)
+        if wp1 >= len(waypoints):
+            wp1 -= len(waypoints)
+        if wp1 < 0:
+            wp1 += len(waypoints)
         dist = 0
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
         wp = copy.copy(wp1)
