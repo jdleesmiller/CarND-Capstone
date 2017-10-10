@@ -13,20 +13,18 @@ import cv2
 
 from datetime import datetime
 
-STATE_COUNT_THRESHOLD = 3
-
 
 class TLDetector(object):
     def __init__(self):
         rospy.init_node('tl_detector')
-
         self.pose = None
         self.waypoints = None
         self.camera_image = None
         self.stop_line_waypoints = []
         self.lights = []
         self.last_known_wp = 0
-
+        self.state_count_threshold = 3
+        self.img_count_threshold = 3
         self.use_ground_truth = rospy.get_param("/use_ground_truth")
 
         if not self.use_ground_truth:
@@ -95,6 +93,11 @@ class TLDetector(object):
             msg (Image): image from car-mounted camera
 
         """
+        if self.img_count_threshold == 3:
+            self.img_count_threshold = 0
+        else:
+            self.img_count_threshold += 1
+            return
         self.camera_image = msg
         light_wp, state = self.process_traffic_lights()
 
@@ -107,7 +110,7 @@ class TLDetector(object):
         if self.state != state:
             self.state_count = 0
             self.state = state
-        elif self.state_count >= STATE_COUNT_THRESHOLD:
+        elif self.state_count >= self.state_count_threshold:
             self.last_state = self.state
             light_wp = light_wp if state == TrafficLight.RED else -1
             self.last_wp = light_wp
