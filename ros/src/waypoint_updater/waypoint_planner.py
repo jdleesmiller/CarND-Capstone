@@ -95,7 +95,7 @@ class WaypointPlanner(object):
             else:
                 dist += dl(waypoints[wp].pose.pose.position, waypoints[wp+1].pose.pose.position)
                 wp += 1
-            go = wp != wp2
+            go = np.abs(wp - wp2) > 0.01
         return dist
 
     def getJMT(self, currentSpeed, WPs, min_index, light_index, distToLight, num_waypoints, accelerate):
