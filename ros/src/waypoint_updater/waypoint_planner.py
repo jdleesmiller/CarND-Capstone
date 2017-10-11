@@ -69,7 +69,7 @@ class WaypointPlanner(object):
         self.targetWaypoint = None
         self.initialize = True
         self.lastWaypoint = 0
-        self.nextRedLight = 292
+        self.nextRedLight = len(self.base_waypoints)
         self.creep = False
 
     def get_waypoint_velocity(self, waypoint):
