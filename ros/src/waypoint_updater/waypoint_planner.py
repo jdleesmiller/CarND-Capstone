@@ -70,6 +70,7 @@ class WaypointPlanner(object):
         self.initialize = True
         self.lastWaypoint = 0
         self.nextRedLight = 292
+        self.creep = False
 
     def get_waypoint_velocity(self, waypoint):
         return waypoint.twist.twist.linear.x
@@ -140,16 +141,16 @@ class WaypointPlanner(object):
                 roots = np.roots(coeff) # Solve positin polynomial for time
                 # Filter out impossible roots - nothing complex nor negative
                 if time == 0: # Need this to get started
-                    time = 0.0001
+                    time = 0.00001
                 else:
                     roots = np.real(roots[np.isreal(roots)]) # Only keep real roots
                     if np.sum(roots>0) == 0:
-                        time = 0.0001 # Choose zero time if all roots negative
+                        time = 0.00001 # Choose zero time if all roots negative
                     else:
                         time = np.min(roots[roots>time]) # Choose smallest possible root
                 setSpeed[i] = np.polyval(coeffSpeed,time) # Evaluate speed polynomial
         # Car won't start unless first speed is not too close to zero
-        if currentSpeed == 0 and accelerate:
+        if currentSpeed < 2 and accelerate:
             i = 0
             while setSpeed[i] < 2:
                 setSpeed[i] = 2
@@ -206,15 +207,24 @@ class WaypointPlanner(object):
             distToLight = self.distance(self.base_waypoints,min_index,light_index) # meters
         currentSpeed = self.get_waypoint_velocity(WPs[min_index]) # Current m/s target
         if distToLight < STOP_EARLY_DIST:
-            # Stop for sure if too close
             self.targetWaypoint = None
-            setSpeed = [0]*num_waypoints
+            if currentSpeed == 0:
+                self.creep = True
+                currentSpeed = 1.5
+                self.set_waypoint_velocity(WPs,min_index  ,1.5)
+                self.set_waypoint_velocity(WPs,min_index-1,1.5)
+            if self.creep:
+                setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index-4, distToLight, num_waypoints, False)
+            else:
+                # Stop for sure if too close
+                setSpeed = [0]*num_waypoints
         else:
             # Check distance to light
             if distToLight < decelDist and not self.initialize:
                 self.targetWaypoint = None
                 setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index, distToLight, num_waypoints, False)
             else: # Full speed ahead
+                self.creep = False
                 if np.abs(currentSpeed-self.targetSpeed) < 0.01:
                     setSpeed = [self.targetSpeed]*num_waypoints
                     self.targetWaypoint = None
@@ -236,7 +246,7 @@ class WaypointPlanner(object):
                 self.set_waypoint_velocity(WPs,min_index+i-len(WPs),setSpeed[i])
             else:
                 self.set_waypoint_velocity(WPs,min_index+i         ,setSpeed[i])
-        #print(min_index, light_index, int(100*distToLight)/100., int(100*self.get_waypoint_velocity(WPs[min_index]))/100.)
+        print(min_index, light_index, int(100*distToLight)/100., int(100*self.get_waypoint_velocity(WPs[min_index]))/100., self.creep)
         self.lastWaypoint = copy.copy(min_index)
         max_index = min_index + num_waypoints
         if max_index >= len(self.base_waypoints):
