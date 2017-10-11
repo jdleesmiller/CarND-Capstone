@@ -5,12 +5,11 @@ import rospy
 import yaml
 import copy
 
-targetSpeed = 10 # m/s ---- 4.4074 m/s = 10 MPH
 accelDist = 10 # Distance over which acceleration should occur
 decelDist = 100 # Distance over which deceleration should occur
 
-# Number of waypoints before the traffic light waypoint to stop
-STOP_EARLY_COUNT = 40
+# Distance in m before the traffic light waypoint to stop
+STOP_EARLY_DIST = 17
 
 def minJerk(T, si, siDot, siDDot, sf, sfDot, sfDDot):
     if T == 0:
@@ -59,8 +58,9 @@ def getClosestForwardLight(lights, position, yaw):
 
 class WaypointPlanner(object):
 
-    def __init__(self, base_waypoints):
+    def __init__(self, base_waypoints, targetSpeed):
         self.base_waypoints = base_waypoints
+        self.targetSpeed = targetSpeed
         for i in range(len(base_waypoints)):
             self.set_waypoint_velocity(self.base_waypoints,i,0)
         self.position = None
@@ -69,6 +69,8 @@ class WaypointPlanner(object):
         self.targetWaypoint = None
         self.initialize = True
         self.lastWaypoint = 0
+        self.nextRedLight = 292
+        self.creep = False
 
     def get_waypoint_velocity(self, waypoint):
         return waypoint.twist.twist.linear.x
@@ -77,24 +79,42 @@ class WaypointPlanner(object):
         waypoints[waypoint].twist.twist.linear.x = velocity
 
     def distance(self, waypoints, wp1, wp2):
+        if wp1 == wp2:
+            return 0
         if wp2 >= len(waypoints):
             wp2 -= len(waypoints)
         if wp2 < 0:
             wp2 += len(waypoints)
+        if wp1 >= len(waypoints):
+            wp1 -= len(waypoints)
+        if wp1 < 0:
+            wp1 += len(waypoints)
         dist = 0
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
         wp = copy.copy(wp1)
         go = True
+        count = 0
         while go:
-            #print(wp1, wp2, wp, go)
+            count += 1
+            if count >= len(waypoints):
+                return None
             if wp+1 >= len(waypoints):
                 dist += dl(waypoints[wp].pose.pose.position, waypoints[0].pose.pose.position)
                 wp = 0
             else:
                 dist += dl(waypoints[wp].pose.pose.position, waypoints[wp+1].pose.pose.position)
                 wp += 1
-            go = wp != wp2
+            go = np.abs(wp - wp2) > 0.01
         return dist
+
+    def copyCurrentSpeed(self, WPs, min_index, num_waypoints):
+        setSpeed = [0]*num_waypoints
+        for i in range(len(setSpeed)):
+            if min_index+i >= len(WPs):
+                setSpeed[i] = self.get_waypoint_velocity(WPs[min_index+i-len(WPs)])
+            else:
+                setSpeed[i] = self.get_waypoint_velocity(WPs[min_index+i])
+        return setSpeed
 
     def getJMT(self, currentSpeed, WPs, min_index, light_index, distToLight, num_waypoints, accelerate):
         # Uses jerk minimizing trajectory to determine speeds for wayPoints WPs
@@ -104,44 +124,46 @@ class WaypointPlanner(object):
             vNext = self.get_waypoint_velocity(WPs[min_index+1]) # m/s
         dv = vNext - currentSpeed # m/s
         dx = self.distance(WPs,min_index,min_index+1) # m
+        if dx is None:
+            return self.copyCurrentSpeed(WPs, min_index, num_waypoints)
         if np.abs(vNext+currentSpeed) < 0.01: # Are at a stop
             a = 0
-            T = distToLight/(targetSpeed/2)
+            T = distToLight/(self.targetSpeed/2)
         else:
             dt = dx/((vNext+currentSpeed)/2) # s (dx = vdt)
-            avgSpeed = (currentSpeed+accelerate*targetSpeed)/2 # m/s
+            avgSpeed = (currentSpeed+accelerate*self.targetSpeed)/2 # m/s
             if avgSpeed <= 0:
                 avgSpeed = 0.1
             T = distToLight/avgSpeed  # s (Time to reach target)
             a = dv/dt
-        alpha = minJerk(T, 0,currentSpeed,a, distToLight,accelerate*targetSpeed,0)
+        alpha = minJerk(T, 0,currentSpeed,a, distToLight,accelerate*self.targetSpeed,0)
         setSpeed = [0]*num_waypoints
         if alpha is None: # In case matrix inversion failed
-            #print("Yikes!")
-            for i in range(len(setSpeed)):
-                setSpeed[i] = self.get_waypoint_velocity(WPs[min_index+i])
-            return setSpeed
+            return self.copyCurrentSpeed(WPs, min_index, num_waypoints)
         coeff = copy.deepcopy(alpha[6:-8:-1]) # Reverse order
         coeffSpeed = [5,4,3,2,1]*coeff[0:5] # Polynomial for speed
         time = 0
         for i in range(len(setSpeed)):
             if min_index+i > light_index: # If past stop line at light
-                setSpeed[i] = accelerate*targetSpeed
+                setSpeed[i] = accelerate*self.targetSpeed
             else:
-                coeff[-1] = alpha[-1] - self.distance(WPs,min_index,min_index+i)
+                temp = self.distance(WPs,min_index,min_index+i)
+                if temp is None:
+                    return self.copyCurrentSpeed(WPs, min_index, num_waypoints)
+                coeff[-1] = alpha[-1] - temp
                 roots = np.roots(coeff) # Solve positin polynomial for time
                 # Filter out impossible roots - nothing complex nor negative
                 if time == 0: # Need this to get started
-                    time = 0.0001
+                    time = 0.00001
                 else:
                     roots = np.real(roots[np.isreal(roots)]) # Only keep real roots
                     if np.sum(roots>0) == 0:
-                        time = 0.0001 # Choose zero time if all roots negative
+                        time = 0.00001 # Choose zero time if all roots negative
                     else:
                         time = np.min(roots[roots>time]) # Choose smallest possible root
                 setSpeed[i] = np.polyval(coeffSpeed,time) # Evaluate speed polynomial
         # Car won't start unless first speed is not too close to zero
-        if currentSpeed == 0 and accelerate:
+        if currentSpeed < 2 and accelerate:
             i = 0
             while setSpeed[i] < 2:
                 setSpeed[i] = 2
@@ -155,12 +177,15 @@ class WaypointPlanner(object):
         if (self.position is None) or (self.lights is None):
             return None
         # Get index in the lights array for the upcoming light
-        index_to_lights = getClosestForwardLight(self.lights, self.position, self.yaw)
         min_distance = float('inf')
         min_index = copy.copy(self.lastWaypoint)
         index = copy.copy(self.lastWaypoint)
         decreasing = True
+        count = 0
         while decreasing:
+            count += 1
+            if count >= len(self.base_waypoints):
+                return [0]*num_waypoints
             waypoint_position = self.base_waypoints[index].pose.pose.position
             distance = position_distance(self.position, waypoint_position)
             if distance < min_distance:
@@ -171,24 +196,7 @@ class WaypointPlanner(object):
             index += 1
             if index >= len(self.base_waypoints):
                 index = 0
-        index = copy.copy(self.lastWaypoint)
-        decreasing = True
-        light_index = 0
-        light_distance = float('inf')
-        while decreasing:
-            # Need to find closest waypoint for upcoming light position
-            waypoint_position = self.base_waypoints[index].pose.pose.position
-            d = np.sqrt((waypoint_position.x-self.lights[index_to_lights].pose.pose.position.x)**2 + \
-                        (waypoint_position.y-self.lights[index_to_lights].pose.pose.position.y)**2)
-            if d < light_distance:
-                light_distance = d
-                light_index = index
-            else:
-                decreasing = False
-            index += 1
-            if index >= len(self.base_waypoints):
-                index = 0
-        light_index -= STOP_EARLY_COUNT # Light positions are directly underneath, stop before it
+        light_index = self.nextRedLight
         # Check to be sure closest waypoint is not behind us
         head = np.arctan2(self.base_waypoints[min_index].pose.pose.position.y   \
                                                             - self.position.y , \
@@ -206,23 +214,44 @@ class WaypointPlanner(object):
                                                                 - self.position.x)
 
         WPs = self.base_waypoints # Just temporary as shortcut for variable name
-        if min_index > light_index and light_index > min_index-STOP_EARLY_COUNT:
-            distToLight = 0
+        if min_index > light_index:
+            if self.distance(self.base_waypoints,light_index,min_index)<10:
+                distToLight = 0
+            else:
+                light_index = len(WPs)
+                distToLight = self.distance(self.base_waypoints, min_index, light_index)
         else:
             distToLight = self.distance(self.base_waypoints,min_index,light_index) # meters
+        if distToLight is None:
+            return self.copyCurrentSpeed(WPs, min_index, num_waypoints)        
         currentSpeed = self.get_waypoint_velocity(WPs[min_index]) # Current m/s target
-        if self.lights[index_to_lights].state != 2 and distToLight == 0:
-            # Stop for sure if already past desired position
+        if distToLight < STOP_EARLY_DIST:
             self.targetWaypoint = None
-            setSpeed = [0]*num_waypoints
+            if currentSpeed == 0:
+                self.creep = True
+                currentSpeed = 1.5
+                self.set_waypoint_velocity(WPs,min_index  ,1.5)
+                if min_index-1 >= 0:
+                    self.set_waypoint_velocity(WPs,min_index-1,1.5)
+                else:
+                    self.set_waypoint_velocity(WPs,min_index-1+len(WPs),1.5)
+            if self.creep:
+                if light_index-4 >= 0:
+                    setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index-4+len(WPs), distToLight, num_waypoints, False)
+                else:
+                    setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index-4, distToLight, num_waypoints, False)
+            else:
+                # Stop for sure if too close
+                setSpeed = [0]*num_waypoints
         else:
             # Check distance to light
-            if self.lights[index_to_lights].state != 2 and distToLight < decelDist and not self.initialize:
+            if distToLight < decelDist and not self.initialize:
                 self.targetWaypoint = None
                 setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index, distToLight, num_waypoints, False)
             else: # Full speed ahead
-                if np.abs(currentSpeed-targetSpeed) < 0.01:
-                    setSpeed = [targetSpeed]*num_waypoints
+                self.creep = False
+                if np.abs(currentSpeed-self.targetSpeed) < 0.01:
+                    setSpeed = [self.targetSpeed]*num_waypoints
                     self.targetWaypoint = None
                 else:
                     if self.targetWaypoint is None:
@@ -234,7 +263,11 @@ class WaypointPlanner(object):
                             if self.targetWaypoint >= len(WPs):
                                 self.targetWaypoint = 0
                             dist = self.distance(WPs,min_index,self.targetWaypoint)
+                            if distToLight is None:
+                                return self.copyCurrentSpeed(WPs, min_index, num_waypoints)
                     dist = self.distance(WPs,min_index,self.targetWaypoint)
+                    if distToLight is None:
+                        return self.copyCurrentSpeed(WPs, min_index, num_waypoints)
                     setSpeed = self.getJMT(currentSpeed, WPs, min_index, self.targetWaypoint, dist, num_waypoints, True)
         #print(setSpeed)
         for i in range(num_waypoints-1): # Loop through all waypoints in list
@@ -242,7 +275,7 @@ class WaypointPlanner(object):
                 self.set_waypoint_velocity(WPs,min_index+i-len(WPs),setSpeed[i])
             else:
                 self.set_waypoint_velocity(WPs,min_index+i         ,setSpeed[i])
-        #print(min_index, light_index, distToLight, self.get_waypoint_velocity(WPs[min_index]), self.lights[index_to_lights].state, self.position.x,self.position.y)
+        print(min_index, light_index, int(100*distToLight)/100., int(100*self.get_waypoint_velocity(WPs[min_index]))/100., self.creep)
         self.lastWaypoint = copy.copy(min_index)
         max_index = min_index + num_waypoints
         if max_index >= len(self.base_waypoints):
