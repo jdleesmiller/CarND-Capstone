@@ -252,9 +252,9 @@ class WaypointPlanner(object):
                     self.set_waypoint_velocity(WPs,min_index-1+len(WPs),1.5)
             if self.creep:
                 if light_index-4 >= 0:
-                    setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index-4+len(WPs), distToLight, num_waypoints, False)
-                else:
                     setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index-4, distToLight, num_waypoints, False)
+                else:
+                    setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index-4+len(WPs), distToLight, num_waypoints, False)
             else:
                 # Stop for sure if too close
                 setSpeed = [0]*num_waypoints
