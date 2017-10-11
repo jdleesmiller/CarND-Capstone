@@ -185,7 +185,7 @@ class WaypointPlanner(object):
         while decreasing:
             count += 1
             if count >= len(self.base_waypoints):
-                return [0]*num_waypoints
+                return None
             waypoint_position = self.base_waypoints[index].pose.pose.position
             distance = position_distance(self.position, waypoint_position)
             if distance < min_distance:
