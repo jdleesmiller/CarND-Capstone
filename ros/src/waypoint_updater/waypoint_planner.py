@@ -69,7 +69,7 @@ class WaypointPlanner(object):
         self.targetWaypoint = None
         self.initialize = True
         self.lastWaypoint = 0
-        self.nextRedLight = 292
+        self.nextRedLight = len(self.base_waypoints)
         self.creep = False
 
     def get_waypoint_velocity(self, waypoint):
@@ -93,7 +93,11 @@ class WaypointPlanner(object):
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
         wp = copy.copy(wp1)
         go = True
+        count = 0
         while go:
+            count += 1
+            if count >= len(waypoints):
+                return None
             if wp+1 >= len(waypoints):
                 dist += dl(waypoints[wp].pose.pose.position, waypoints[0].pose.pose.position)
                 wp = 0
@@ -103,6 +107,15 @@ class WaypointPlanner(object):
             go = np.abs(wp - wp2) > 0.01
         return dist
 
+    def copyCurrentSpeed(self, WPs, min_index, num_waypoints):
+        setSpeed = [0]*num_waypoints
+        for i in range(len(setSpeed)):
+            if min_index+i >= len(WPs):
+                setSpeed[i] = self.get_waypoint_velocity(WPs[min_index+i-len(WPs)])
+            else:
+                setSpeed[i] = self.get_waypoint_velocity(WPs[min_index+i])
+        return setSpeed
+
     def getJMT(self, currentSpeed, WPs, min_index, light_index, distToLight, num_waypoints, accelerate):
         # Uses jerk minimizing trajectory to determine speeds for wayPoints WPs
         if min_index+1 == len(WPs):
@@ -111,6 +124,8 @@ class WaypointPlanner(object):
             vNext = self.get_waypoint_velocity(WPs[min_index+1]) # m/s
         dv = vNext - currentSpeed # m/s
         dx = self.distance(WPs,min_index,min_index+1) # m
+        if dx is None:
+            return self.copyCurrentSpeed(WPs, min_index, num_waypoints)
         if np.abs(vNext+currentSpeed) < 0.01: # Are at a stop
             a = 0
             T = distToLight/(self.targetSpeed/2)
@@ -124,12 +139,7 @@ class WaypointPlanner(object):
         alpha = minJerk(T, 0,currentSpeed,a, distToLight,accelerate*self.targetSpeed,0)
         setSpeed = [0]*num_waypoints
         if alpha is None: # In case matrix inversion failed
-            for i in range(len(setSpeed)):
-                if min_index+i >= len(WPs):
-                    setSpeed[i] = self.get_waypoint_velocity(WPs[min_index+i-len(WPs)])
-                else:
-                    setSpeed[i] = self.get_waypoint_velocity(WPs[min_index+i])
-            return setSpeed
+            return self.copyCurrentSpeed(WPs, min_index, num_waypoints)
         coeff = copy.deepcopy(alpha[6:-8:-1]) # Reverse order
         coeffSpeed = [5,4,3,2,1]*coeff[0:5] # Polynomial for speed
         time = 0
@@ -137,7 +147,10 @@ class WaypointPlanner(object):
             if min_index+i > light_index: # If past stop line at light
                 setSpeed[i] = accelerate*self.targetSpeed
             else:
-                coeff[-1] = alpha[-1] - self.distance(WPs,min_index,min_index+i)
+                temp = self.distance(WPs,min_index,min_index+i)
+                if temp is None:
+                    return self.copyCurrentSpeed(WPs, min_index, num_waypoints)
+                coeff[-1] = alpha[-1] - temp
                 roots = np.roots(coeff) # Solve positin polynomial for time
                 # Filter out impossible roots - nothing complex nor negative
                 if time == 0: # Need this to get started
@@ -156,6 +169,20 @@ class WaypointPlanner(object):
                 setSpeed[i] = 2
                 i += 1
         return setSpeed
+    
+    def getCopiedWaypoints(self, setSpeed, WPs, min_index, num_waypoints):
+        for i in range(num_waypoints-1): # Loop through all waypoints in list
+            if min_index+i >= len(WPs):
+                self.set_waypoint_velocity(WPs,min_index+i-len(WPs),setSpeed[i])
+            else:
+                self.set_waypoint_velocity(WPs,min_index+i         ,setSpeed[i])
+        max_index = min_index + num_waypoints
+        if max_index >= len(self.base_waypoints):
+            max_index -= len(self.base_waypoints)
+            WPs = self.base_waypoints[min_index:] + self.base_waypoints[:max_index]
+        else:
+            WPs = self.base_waypoints[min_index:max_index]
+        return WPs
 
     def plan(self, num_waypoints):
         """
@@ -168,7 +195,11 @@ class WaypointPlanner(object):
         min_index = copy.copy(self.lastWaypoint)
         index = copy.copy(self.lastWaypoint)
         decreasing = True
+        count = 0
         while decreasing:
+            count += 1
+            if count >= len(self.base_waypoints):
+                return None
             waypoint_position = self.base_waypoints[index].pose.pose.position
             distance = position_distance(self.position, waypoint_position)
             if distance < min_distance:
@@ -205,6 +236,9 @@ class WaypointPlanner(object):
                 distToLight = self.distance(self.base_waypoints, min_index, light_index)
         else:
             distToLight = self.distance(self.base_waypoints,min_index,light_index) # meters
+        if distToLight is None:
+            setSpeed = self.copyCurrentSpeed(WPs, min_index, num_waypoints)        
+            return self.getCopiedWaypoints(setSpeed, WPs, min_index, num_waypoints)
         currentSpeed = self.get_waypoint_velocity(WPs[min_index]) # Current m/s target
         if distToLight < STOP_EARLY_DIST:
             self.targetWaypoint = None
@@ -212,9 +246,15 @@ class WaypointPlanner(object):
                 self.creep = True
                 currentSpeed = 1.5
                 self.set_waypoint_velocity(WPs,min_index  ,1.5)
-                self.set_waypoint_velocity(WPs,min_index-1,1.5)
+                if min_index-1 >= 0:
+                    self.set_waypoint_velocity(WPs,min_index-1,1.5)
+                else:
+                    self.set_waypoint_velocity(WPs,min_index-1+len(WPs),1.5)
             if self.creep:
-                setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index-4, distToLight, num_waypoints, False)
+                if light_index-4 >= 0:
+                    setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index-4, distToLight, num_waypoints, False)
+                else:
+                    setSpeed = self.getJMT(currentSpeed, WPs, min_index, light_index-4+len(WPs), distToLight, num_waypoints, False)
             else:
                 # Stop for sure if too close
                 setSpeed = [0]*num_waypoints
@@ -238,21 +278,16 @@ class WaypointPlanner(object):
                             if self.targetWaypoint >= len(WPs):
                                 self.targetWaypoint = 0
                             dist = self.distance(WPs,min_index,self.targetWaypoint)
+                            if distToLight is None:
+                                setSpeed = self.copyCurrentSpeed(WPs, min_index, num_waypoints)
+                                return self.getCopiedWaypoints(setSpeed, WPs, min_index, num_waypoints)
                     dist = self.distance(WPs,min_index,self.targetWaypoint)
+                    if distToLight is None:
+                        setSpeed = self.copyCurrentSpeed(WPs, min_index, num_waypoints)
+                        return self.getCopiedWaypoints(setSpeed, WPs, min_index, num_waypoints)
                     setSpeed = self.getJMT(currentSpeed, WPs, min_index, self.targetWaypoint, dist, num_waypoints, True)
         #print(setSpeed)
-        for i in range(num_waypoints-1): # Loop through all waypoints in list
-            if min_index+i >= len(WPs):
-                self.set_waypoint_velocity(WPs,min_index+i-len(WPs),setSpeed[i])
-            else:
-                self.set_waypoint_velocity(WPs,min_index+i         ,setSpeed[i])
-        print(min_index, light_index, int(100*distToLight)/100., int(100*self.get_waypoint_velocity(WPs[min_index]))/100., self.creep)
+        print(min_index, light_index, int(100*distToLight)/100., int(100*setSpeed[0])/100., self.creep)
         self.lastWaypoint = copy.copy(min_index)
-        max_index = min_index + num_waypoints
-        if max_index >= len(self.base_waypoints):
-            max_index -= len(self.base_waypoints)
-            WPs = self.base_waypoints[min_index:] + self.base_waypoints[:max_index]
-        else:
-            WPs = self.base_waypoints[min_index:max_index]
         self.initialize = False
-        return WPs
+        return self.getCopiedWaypoints(setSpeed, WPs, min_index, num_waypoints)
