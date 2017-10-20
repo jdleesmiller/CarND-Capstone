@@ -7,7 +7,7 @@
 
 import argparse
 import rospy
-from std_msgs.msg import Int32
+from std_msgs.msg import Bool, Int32
 from geometry_msgs.msg import PoseStamped, Pose, TwistStamped
 from styx_msgs.msg import TrafficLightArray, TrafficLight, Lane, Waypoint
 from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
@@ -63,6 +63,7 @@ class GenerateDiagnostics():
         # test different raw image update rates:
         self.updateRate = 20 # 20 times a second
 
+        self.dbw_enabled = None
         self.state = TrafficLight.UNKNOWN
         self.last_state = TrafficLight.UNKNOWN
         self.last_wp = -1
@@ -92,6 +93,7 @@ class GenerateDiagnostics():
         self.img_vis_txt_x = text_spacing
         self.img_vis_txt_y = text_spacing
 
+        self.sub_dbw_enabled = rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
         self.sub_waypoints = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
         self.sub_fwaypoints = rospy.Subscriber('/final_waypoints', Lane, self.fwaypoints_cb)
         self.sub_current_pose = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
@@ -225,6 +227,9 @@ class GenerateDiagnostics():
             self.frame_history.pop(0)
         self.vel_history.append(self.current_linear_velocity)
         self.frame_history.append(self.i)
+
+    def dbw_enabled_cb(self, msg):
+        self.dbw_enabled = msg.data
 
     def waypoints_cb(self, msg):
         # DONE: Implement
@@ -399,12 +404,18 @@ class GenerateDiagnostics():
                     self.drawTrafficLights(self.cv_image)
                     self.drawCurrentPos(self.cv_image)
                     color = (192, 192, 0)
-                    text0 = "Frame: %d"
+                    text0 = "Frame: %d       Autonomous: %s"
                     text1a = "Nearest Traffic Light (%d) is %fm ahead."
                     text1b = "Nearest Traffic Light (%d) is behind us."
                     text2 = "Curr. position is (%f, %f, %f).  Yaw: %f"
                     text3 = "Next Waypoint position is (%f, %f) with %d array len."
-                    cv2.putText(self.cv_image, text0%(self.i), (self.img_vis_txt_x,  self.img_vis_txt_y), font, self.img_vis_font_size, color, 2)
+                    if self.dbw_enabled is None:
+                        dbw_enabled = '?'
+                    elif self.dbw_enabled:
+                        dbw_enabled = 'Y'
+                    else:
+                        dbw_enabled = 'N'
+                    cv2.putText(self.cv_image, text0%(self.i, dbw_enabled), (self.img_vis_txt_x,  self.img_vis_txt_y), font, self.img_vis_font_size, color, 2)
                     if tl_dist is not None:
                         cv2.putText(self.cv_image, text1a%(self.ctl, tl_dist), (self.img_vis_txt_x,  self.img_vis_txt_y*2), font, self.img_vis_font_size, color, 2)
                     else:
