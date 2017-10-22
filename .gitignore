@@ -9,4 +9,5 @@ devel
 profile.tmp
 
 data/*.bag
+data/*.ogv
 ros/src/tl_detector/frozen_inference_graph.pb
