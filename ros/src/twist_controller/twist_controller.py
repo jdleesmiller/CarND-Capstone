@@ -105,8 +105,11 @@ class Controller(object):
         #         speed_error, speed_control, throttle, brake,
         #         self.speed_pid.int_val))
 
+        new_speed = current_speed + speed_control * dt
+        if new_speed < 0.0:
+            new_speed = 0.0
         steer = self.yaw_controller.get_steering(
-            target_speed, target_angular_velocity, current_speed)
+            new_speed, target_angular_velocity, current_speed)
 
         self.t = t
 

@@ -17,7 +17,7 @@ class YawController(object):
         return max(self.min_angle, min(self.max_angle, angle))
 
     def get_steering(self, linear_velocity, angular_velocity, current_velocity):
-        # linear_velocity: target linear velocity (m/s)
+        # linear_velocity: target linear velocity at end of timestep (m/s)
         # angular_velocity: target angular velocity (rad/s)
         # current_velocity: current linear velocity (m/s)
 
