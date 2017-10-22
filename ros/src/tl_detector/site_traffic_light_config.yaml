@@ -7,4 +7,4 @@ camera_info:
     top: 100
     bottom: 700
 stop_line_positions:
-    - [20.991, 22.837]
+    - [8.0, 16.2]
