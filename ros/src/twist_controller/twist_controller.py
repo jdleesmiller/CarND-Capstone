@@ -18,6 +18,12 @@ SPEED_KD = 0.158782882613904
 SPEED_FILTER_TAU = 20.0
 YAW_CONTROLLER_MIN_SPEED = 1.0
 
+# If the car is supposed to be stopped, apply the brakes with this
+# torque. This threshold was calibrated empirically based on dbw_test.
+ALL_STOP_BRAKE_TORQUE = 3250.0 * 0.025  # Nm
+ALL_STOP_MIN_TARGET_SPEED = 0.001  # m/s
+ALL_STOP_MIN_CURRENT_SPEED = 0.1  # m/s
+
 # Watching `rostopic echo /vehicle/*_report`:
 # Throttle: ranges from 0 to 1
 # Brake: ranges from 0 to 20,000
@@ -81,27 +87,32 @@ class Controller(object):
         speed_control = self.throttle_filter.filt(raw_speed_control)
         # Tuning: self.speed_pid_tuner.step(
         #     target_speed, speed_error, speed_control, dt)
-        if speed_control >= 0:
-            throttle = speed_control * self.max_throttle
-            brake = 0
-        elif speed_control <= self.brake_deadband or target_speed < 1.0:
-            # If we are braking, the control is the torque to be applied by
-            # the brakes. We know the braking force we want from F=ma where
-            # m is the mass of the vehicle and a is the control value, so
-            # multiply by the wheel radius to get the required torque.
+
+        if target_speed < ALL_STOP_MIN_TARGET_SPEED and \
+                abs(current_speed) < ALL_STOP_MIN_CURRENT_SPEED:
             throttle = 0
-            brake = -speed_control * self.vehicle_mass * self.wheel_radius
+            brake = ALL_STOP_BRAKE_TORQUE
         else:
-            # We are in the braking deadband; just let the engine brake rather
-            # than using the wheel brakes.
-            throttle = 0
-            brake = 0
+            if speed_control >= 0:
+                throttle = speed_control * self.max_throttle
+                brake = 0
+            elif speed_control <= -self.brake_deadband:
+                # If we are braking, the control is the torque to be applied by
+                # the brakes. We know the braking force we want from F=ma where
+                # m is the mass of the vehicle and a is the control value, so
+                # multiply by the wheel radius to get the required torque.
+                throttle = 0
+                brake = -speed_control * self.vehicle_mass * self.wheel_radius
+            else:
+                # We are in the braking deadband; just let the engine brake
+                # rather than using the wheel brakes.
+                throttle = 0
+                brake = 0
 
         # rospy.logwarn_throttle(
         #     0.5,
-        #     'target=%.2f curr=%.2f (%.2f) e=%.2f a=%.2f t=%.2f b=%.2f '
-        #     'i=%.2f' % (
-        #         target_speed, current_speed, unfiltered_current_speed,
+        #     'target=%.2f curr=%.2f e=%.2f a=%.2f t=%.2f b=%.2f i=%.2f' % (
+        #         target_speed, current_speed,
         #         speed_error, speed_control, throttle, brake,
         #         self.speed_pid.int_val))
 
@@ -113,4 +124,4 @@ class Controller(object):
 
         self.t = t
 
-        return throttle, brake, steer
+        return throttle, 4 * brake, steer
