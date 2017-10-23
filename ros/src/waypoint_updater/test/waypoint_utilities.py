@@ -3,6 +3,8 @@ import tf
 
 from styx_msgs.msg import Lane, Waypoint
 
+from geometry_msgs.msg import Quaternion
+
 
 def make_lane(time, base_speed=10):
     lane = Lane()
@@ -21,6 +23,6 @@ def make_waypoint(x, y, z=0.0, yaw=0.0, speed=0.0):
     waypoint.pose.pose.position.y = y
     waypoint.pose.pose.position.z = z
     waypoint.pose.pose.orientation = \
-        tf.transformations.quaternion_from_euler(0.0, 0.0, yaw)
+        Quaternion(*tf.transformations.quaternion_from_euler(0.0, 0.0, yaw))
     waypoint.twist.twist.linear.x = speed
     return waypoint

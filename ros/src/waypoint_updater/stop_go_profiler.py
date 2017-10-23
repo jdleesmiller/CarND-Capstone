@@ -1,20 +1,6 @@
 import math
 
-
-def find_position_distance(position0, position1):
-    """
-    Distance between two positions.
-    """
-    delta_x = position1.x - position0.x
-    delta_y = position1.y - position0.y
-    delta_z = position1.z - position0.z
-    return math.sqrt(delta_x * delta_x + delta_y * delta_y + delta_z * delta_z)
-
-
-def find_waypoint_distance(waypoint0, waypoint1):
-    return find_position_distance(
-        waypoint0.pose.pose.position,
-        waypoint1.pose.pose.position)
+from distance import find_waypoint_distance
 
 
 class InfiniteJerkSpeedProfileSegment(object):

@@ -1,61 +1,59 @@
 #!/usr/bin/env python
 
 import rospy
-from geometry_msgs.msg import PoseStamped
-from styx_msgs.msg import Lane, Waypoint, TrafficLightArray
+from geometry_msgs.msg import PoseStamped, TwistStamped
+from styx_msgs.msg import Lane
 from std_msgs.msg import Int32
+from threading import Lock
 
-import tf
-import math
-
+from waypoint_localizer import WaypointLocalizer
+from speed_estimator import SpeedEstimator
 from waypoint_planner import WaypointPlanner
 # PID Tuning: from stop_go_profiler import StopGoProfiler, make_stop_go_profile
 
 '''
-This node will publish waypoints from the car's current position to some `x` distance ahead.
+This node will publish waypoints from the car's current position to some `x`
+distance ahead.
 
-As mentioned in the doc, you should ideally first implement a version which does not care
-about traffic lights or obstacles.
+As mentioned in the doc, you should ideally first implement a version which
+does not care about traffic lights or obstacles.
 
-Once you have created dbw_node, you will update this node to use the status of traffic lights too.
-
-Please note that our simulator also provides the exact location of traffic lights and their
-current status in `/vehicle/traffic_lights` message. You can use this message to build this node
-as well as to verify your TL classifier.
-
-TODO (for Yousuf and Aaron): Stopline location for each traffic light.
+Once you have created dbw_node, you will update this node to use the status
+of traffic lights too.
 '''
 
-LOOKAHEAD_WPS = 30 # Number of waypoints we will publish. You can change this number
-
-
-def kmph2mps(velocity_kmph):
-    return (velocity_kmph * 1000.) / (60. * 60.)
+# Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 30
 
 
 class WaypointUpdater(object):
     def __init__(self):
         rospy.init_node('waypoint_updater')
 
-        max_speed = kmph2mps(rospy.get_param('/waypoint_loader/velocity'))
+        base_waypoints = self.wait_for_base_waypoints()
+        acceleration_limit = rospy.get_param('/dbw_node/accel_limit')
+        deceleration_limit = rospy.get_param('/dbw_node/decel_limit')
+        self.waypoint_localizer = WaypointLocalizer(base_waypoints)
+        self.speed_estimator = SpeedEstimator()
         self.planner = WaypointPlanner(
-            self.wait_for_base_waypoints(), max_speed)
+            base_waypoints,
+            self.waypoint_localizer,
+            self.speed_estimator,
+            acceleration_limit, deceleration_limit, LOOKAHEAD_WPS)
+        self.planner_lock = Lock()
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
-        rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.light_cb)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
 
-        # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
         rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
-        self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
+        self.final_waypoints_pub = rospy.Publisher(
+            'final_waypoints', Lane, queue_size=1)
 
     def wait_for_base_waypoints(self):
         """
-        The base waypoints never change (confirmed on Slack), so just listen for
-        a single message to get our waypoints. This blocks until we get the
+        The base waypoints never change (confirmed on Slack), so just listen
+        for a single message to get our waypoints. This blocks until we get the
         message.
-
-        TODO: Maybe we should just load the base waypoints in this node and get
-        rid of the waypoint loader altogether, or change it into a ROS Service.
         """
         lane = rospy.wait_for_message('/base_waypoints', Lane)
         return lane.waypoints
@@ -64,23 +62,21 @@ class WaypointUpdater(object):
         """
         Record the last known pose.
         """
-        self.planner.position = msg.pose.position
-        quat = (msg.pose.orientation.x, \
-                msg.pose.orientation.y, \
-                msg.pose.orientation.z, \
-                msg.pose.orientation.w)
-        self.planner.yaw = tf.transformations.euler_from_quaternion(quat)[2]
+        self.speed_estimator.update_pose(msg)
+        with self.planner_lock:
+            self.waypoint_localizer.update(msg.pose)
 
-    def light_cb(self, msg):
+    def velocity_cb(self, msg):
         """
-        Get traffic light state
+        Record the last known speed.
         """
-        self.planner.lights = msg.lights
+        self.speed_estimator.update_speed(msg.twist.linear.x)
 
     def publish_waypoints(self):
         # PID Tuning:
         # plan_waypoints = self.planner.find_closest_waypoints(LOOKAHEAD_WPS)
-        plan_waypoints = self.planner.plan(LOOKAHEAD_WPS)
+        with self.planner_lock:
+            plan_waypoints = self.planner.find_next_waypoints()
         if plan_waypoints is None:
             return
         lane = Lane()
@@ -93,7 +89,7 @@ class WaypointUpdater(object):
     def run(self):
         rate = rospy.Rate(10)
 
-        start_time = 0
+        start_time = 0.0
         while not start_time:
             start_time = rospy.get_time()
 
@@ -107,30 +103,8 @@ class WaypointUpdater(object):
             rate.sleep()
 
     def traffic_cb(self, msg):
-        # TODO: Callback for /traffic_waypoint message. Implement
-        if msg.data != -1:
-            self.planner.nextRedLight = msg.data
-        else:
-            self.planner.nextRedLight = len(self.planner.base_waypoints)
-
-    def obstacle_cb(self, msg):
-        # TODO: Callback for /obstacle_waypoint message. We will implement it later
-        pass
-
-    def get_waypoint_velocity(self, waypoint):
-        return waypoint.twist.twist.linear.x
-
-    def set_waypoint_velocity(self, waypoints, waypoint, velocity):
-        waypoints[waypoint].twist.twist.linear.x = velocity
-
-    def distance(self, waypoints, wp1, wp2):
-        dist = 0
-        dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
-        for i in range(wp1, wp2+1):
-            dist += dl(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
-            wp1 = i
-        return dist
-
+        with self.planner_lock:
+            self.planner.update_stop_index(msg.data)
 
 if __name__ == '__main__':
     try:
